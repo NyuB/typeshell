@@ -1,2 +1,2 @@
-a = "a = A";
+val a = "a = A";
 echo a

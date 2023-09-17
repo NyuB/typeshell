@@ -1,2 +1,2 @@
-a = ${TSH};
+val a = ${TSH};
 echo a

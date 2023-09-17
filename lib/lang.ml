@@ -2,14 +2,20 @@ type expr =
   | Env of string
   | Str of string
 
-type assignment =
+type declaration =
   { name : string
   ; expression : expr
   ; const : bool
   }
 
+type assignment =
+  { variable_name : string
+  ; expression : expr
+  }
+
 type command =
   | Assign of assignment
+  | Declare of declaration
   | Echo of string
 
 type program = command list
@@ -18,6 +24,7 @@ module SMap = Map.Make (String)
 
 exception KeyError of string
 exception UndeclaredVariable of string
+exception AlreadyDeclaredVariable of string
 exception ReassignedConstant of string
 
 module type Compiler = sig
@@ -39,10 +46,15 @@ module Verifier : Phase = struct
 
   let interpret_command (ctxt : context) (command : command) : (context, exn) result =
     match command with
-    | Assign { name; const; _ } ->
+    | Declare { name; const; _ } ->
       (match SMap.find_opt name ctxt with
-       | Some { const = true } -> Error (ReassignedConstant name)
+       | Some _ -> Error (AlreadyDeclaredVariable name)
        | _ -> Ok (SMap.add name { const } ctxt))
+    | Assign { variable_name; _ } ->
+      (match SMap.find_opt variable_name ctxt with
+       | None -> Error (UndeclaredVariable variable_name)
+       | Some { const = true } -> Error (ReassignedConstant variable_name)
+       | Some { const = false } -> Ok ctxt)
     | Echo name ->
       (match SMap.find_opt name ctxt with
        | None -> Error (UndeclaredVariable name)
@@ -68,17 +80,23 @@ module Interpreter :
     ; variables : string SMap.t
     }
 
-  let interpret_command ctxt cmd =
-    match cmd with
-    | Assign { name; expression = Str value; const = _ } ->
-      let variables = SMap.add name value ctxt.variables in
+  let assign_unsafe name expr ctxt =
+    match expr with
+    | Str s ->
+      let variables = SMap.add name s ctxt.variables in
       { ctxt with variables }
-    | Assign { name; expression = Env env_name; const = _ } ->
+    | Env env_name ->
       (match ctxt.env env_name with
        | None -> raise (KeyError env_name)
        | Some value ->
          let variables = SMap.add name value ctxt.variables in
          { ctxt with variables })
+  ;;
+
+  let interpret_command ctxt cmd =
+    match cmd with
+    | Assign { variable_name = name; expression } | Declare { name; expression; _ } ->
+      assign_unsafe name expression ctxt
     | Echo id ->
       (match SMap.find_opt id ctxt.variables with
        | None -> raise (KeyError id)

@@ -4,6 +4,9 @@ Reassigned
   [2]
 
 Undeclared
-  $ typeshell undeclared.tsh
+  $ typeshell undeclared_env.tsh
+  Fatal error: exception Typeshell.Lang.UndeclaredVariable("undeclared_variable")
+  [2]
+  $ typeshell undeclared_reassign.tsh
   Fatal error: exception Typeshell.Lang.UndeclaredVariable("undeclared_variable")
   [2]

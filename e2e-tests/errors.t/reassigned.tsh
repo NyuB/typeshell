@@ -1,3 +1,2 @@
-a = "First assigned here";
-a = "Reassigned";
-echo a
+val a = "Declared val";
+a = "Reassigned"

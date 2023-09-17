@@ -5,6 +5,7 @@
 %token SEPARATOR
 %token <string> STRING_LITERAL
 %token EOF
+%token VAL
 %token VAR
 
 %start <Lang.program> prog
@@ -17,19 +18,24 @@ prog:
 
 command:
     | ECHO; id = ID { Echo id }
-    | a = assignment { a }
+    | a = assignment { Assign a }
+    | d = declaration { Declare d }
+    ;
+
+declaration:
+    | cd = const_declaration { cd }
+    | vd = var_declaration { vd }
     ;
 
 assignment:
-    | a = const_assignment { Assign a }
-    | a = var_assignment { Assign a }
+    | variable_name = ID; EQ; s = STRING_LITERAL { Lang.{ variable_name; expression = Str s } }
+    | variable_name = ID; EQ; env_name = DOLLAR_ID { Lang.{ variable_name; expression = Env env_name } }
     ;
 
-const_assignment:
-    | name = ID; EQ; value = STRING_LITERAL { Lang.{ name; expression = Str value; const = true } }
-    | name = ID; EQ; env_name = DOLLAR_ID { Lang.{ name; expression = Env env_name; const = true } }
+const_declaration:
+    | VAL; a = assignment { Lang.{ name = a.variable_name; expression = a.expression; const = true } }
     ;
 
-var_assignment:
-    | VAR; a = const_assignment { Lang.{ a with const = false } }
+var_declaration:
+    | VAR; a = assignment { Lang.{ name = a.variable_name; expression = a.expression; const = false } }
     ;
