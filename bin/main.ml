@@ -11,6 +11,6 @@ let () =
       let lexbuf = Lexing.from_channel ic in
       lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
       let program = Parser.prog Lexer.read lexbuf in
-      let verified_program = Lang.Verifier.interpret_program Lang.verifier_env program in
+      let verified_program = Lang.Verifier.interpret_program Lang.phase_env program in
       Lang.Interpreter.interpret_program env verified_program)
 ;;

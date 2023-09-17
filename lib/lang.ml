@@ -27,11 +27,13 @@ module type Compiler = sig
   val interpret_program : env -> program -> output
 end
 
-type verifier_env = unit
+type phase_env = unit
 
-let verifier_env : verifier_env = ()
+let phase_env : phase_env = ()
 
-module Verifier : Compiler with type env := unit and type output := program = struct
+module type Phase = Compiler with type output := program and type env := phase_env
+
+module Verifier : Phase = struct
   type variable_constraints = { const : bool }
   type context = variable_constraints SMap.t
 
@@ -47,7 +49,7 @@ module Verifier : Compiler with type env := unit and type output := program = st
        | _ -> Ok ctxt)
   ;;
 
-  let interpret_program (_ : verifier_env) (program : program) : program =
+  let interpret_program (_ : phase_env) (program : program) : program =
     let rec aux ctxt = function
       | [] -> program
       | cmd :: t ->
