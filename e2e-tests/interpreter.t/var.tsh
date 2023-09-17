@@ -1,0 +1,4 @@
+var a = "Mutable ?";
+echo a;
+a = "Mutated !";
+echo a

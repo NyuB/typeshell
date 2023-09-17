@@ -2,8 +2,14 @@ type expr =
   | Env of string
   | Str of string
 
+type assignment =
+  { name : string
+  ; expression : expr
+  ; const : bool
+  }
+
 type command =
-  | Assign of (string * expr)
+  | Assign of assignment
   | Echo of string
 
 type program = command list
@@ -31,10 +37,10 @@ module Verifier : Compiler with type env := unit and type output := program = st
 
   let interpret_command (ctxt : context) (command : command) : (context, exn) result =
     match command with
-    | Assign (name, _) ->
+    | Assign { name; const; _ } ->
       (match SMap.find_opt name ctxt with
        | Some { const = true } -> Error (ReassignedConstant name)
-       | _ -> Ok (SMap.add name { const = true } ctxt))
+       | _ -> Ok (SMap.add name { const } ctxt))
     | Echo name ->
       (match SMap.find_opt name ctxt with
        | None -> Error (UndeclaredVariable name)
@@ -62,10 +68,10 @@ module Interpreter :
 
   let interpret_command ctxt cmd =
     match cmd with
-    | Assign (name, Str value) ->
+    | Assign { name; expression = Str value; const = _ } ->
       let variables = SMap.add name value ctxt.variables in
       { ctxt with variables }
-    | Assign (name, Env env_name) ->
+    | Assign { name; expression = Env env_name; const = _ } ->
       (match ctxt.env env_name with
        | None -> raise (KeyError env_name)
        | Some value ->

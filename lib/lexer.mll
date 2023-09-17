@@ -21,6 +21,7 @@ rule read =
   parse
   | white    { read lexbuf }
   | newline  {  new_line lexbuf; read lexbuf }
+  | "var" { VAR }
   | "echo" { ECHO }
   | '=' { EQ }
   | ';' { SEPARATOR }
