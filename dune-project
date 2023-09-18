@@ -5,24 +5,24 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github NyuB/typeshell))
 
-(authors "Author Name")
+(authors "Brice Decaestecker")
 
-(maintainers "Maintainer Name")
+(maintainers "Brice Decaestecker")
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
+(documentation https://github/NyuB/typeshell)
 
 (using menhir 2.1)
 
 (package
  (name typeshell)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune)
+ (synopsis "Checked dsl to bash transpiler")
+ (description "Never write raw bash again")
+ (depends (ocaml (>= 5.0.0)) dune)
  (tags
-  (topics "to describe" your project)))
+  (bash compiler)))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
