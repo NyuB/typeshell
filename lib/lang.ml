@@ -22,7 +22,6 @@ type program = command list
 
 module SMap = Map.Make (String)
 
-exception KeyError of string
 exception UndeclaredVariable of string
 exception AlreadyDeclaredVariable of string
 exception ReassignedConstant of string
@@ -76,7 +75,8 @@ end
 module BashTranspilation :
   Compiler with type env := phase_env and type output := string list = struct
   let transpile_assign name = function
-    | Env env_name -> Printf.sprintf "%s=\"${%s}\"" name env_name
+    | Env env_name ->
+      Printf.sprintf "%s=\"${%s:?\"Null environment variable\"}\"" name env_name
     | Str str -> Printf.sprintf "%s='%s'" name str
   ;;
 
@@ -101,6 +101,8 @@ module Interpreter :
     ; variables : string SMap.t
     }
 
+  exception NullEnvironmentVariable of string
+
   let assign_unsafe name expr ctxt =
     match expr with
     | Str s ->
@@ -108,7 +110,7 @@ module Interpreter :
       { ctxt with variables }
     | Env env_name ->
       (match ctxt.env env_name with
-       | None -> raise (KeyError env_name)
+       | None | Some "" -> raise (NullEnvironmentVariable env_name)
        | Some value ->
          let variables = SMap.add name value ctxt.variables in
          { ctxt with variables })
@@ -120,7 +122,7 @@ module Interpreter :
       assign_unsafe name expression ctxt
     | Echo id ->
       (match SMap.find_opt id ctxt.variables with
-       | None -> raise (KeyError id)
+       | None -> raise (UndeclaredVariable id)
        | Some v ->
          let () = print_endline v in
          ctxt)
