@@ -1,2 +1,3 @@
 (tests
- (names typeshell_test))
+ (names typeshell_test)
+ (libraries alcotest))

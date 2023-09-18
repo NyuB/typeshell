@@ -40,7 +40,7 @@ let phase_env : phase_env = ()
 
 module type Phase = Compiler with type output := program and type env := phase_env
 
-module Verifier : Phase = struct
+module AssignmentsValidation : Phase = struct
   type variable_constraints = { const : bool }
   type context = variable_constraints SMap.t
 
@@ -70,6 +70,27 @@ module Verifier : Phase = struct
          | Ok next_ctxt -> aux next_ctxt t)
     in
     aux SMap.empty program
+  ;;
+end
+
+module BashTranspilation :
+  Compiler with type env := phase_env and type output := string list = struct
+  let transpile_assign name = function
+    | Env env_name -> Printf.sprintf "%s=\"${%s}\"" name env_name
+    | Str str -> Printf.sprintf "%s='%s'" name str
+  ;;
+
+  let transpile_command cmd =
+    match cmd with
+    | Assign { variable_name = name; expression }
+    | Declare { name; expression; const = false } -> transpile_assign name expression
+    | Declare { name; expression; const = true } ->
+      Printf.sprintf "declare -r %s" (transpile_assign name expression)
+    | Echo name -> Printf.sprintf "echo \"${%s}\"" name
+  ;;
+
+  let interpret_program _ program =
+    "#!/bin/bash" :: "" :: List.map transpile_command program
   ;;
 end
 

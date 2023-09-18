@@ -1,17 +1,58 @@
 open Typeshell
 open Lexing
 
-let () =
-  let filename = Sys.argv.(1) in
+let apply_phases program =
+  program |> Lang.AssignmentsValidation.interpret_program Lang.phase_env
+;;
+
+type args =
+  { transpiled_filename : string option
+  ; source_file : string
+  }
+
+let usage = "typeshell [-t <transpiled_filename>] source_file"
+
+let parse_args = function
+  | "-t" :: transpiled_filename :: [ source_file ]
+  | source_file :: "-t" :: [ transpiled_filename ] ->
+    { transpiled_filename = Some transpiled_filename; source_file }
+  | [ source_file ] -> { source_file; transpiled_filename = None }
+  | args ->
+    raise
+    @@ Invalid_argument
+         (Printf.sprintf
+            "Invalid arguments %s\nUsage : %s"
+            (String.concat " " args)
+            usage)
+;;
+
+let protected_in filename f =
   let ic = open_in filename in
+  Fun.protect ~finally:(fun () -> close_in ic) (fun () -> f ic)
+;;
+
+let protected_out filename f =
+  let oc = open_out filename in
+  Fun.protect ~finally:(fun () -> close_out oc) (fun () -> f oc)
+;;
+
+let () =
+  let args =
+    parse_args (Array.sub Sys.argv 1 (Array.length Sys.argv - 1) |> Array.to_list)
+  in
   let env = Sys.getenv_opt in
-  Fun.protect
-    ~finally:(fun () -> close_in ic)
-    (fun () ->
-      let lexbuf = Lexing.from_channel ic in
-      lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-      let program = Parser.prog Lexer.read lexbuf in
-      program
-      |> Lang.Verifier.interpret_program Lang.phase_env
-      |> Lang.Interpreter.interpret_program env)
+  protected_in args.source_file (fun ic ->
+    let lexbuf = Lexing.from_channel ic in
+    lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = args.source_file };
+    let program = Parser.prog Lexer.read lexbuf |> apply_phases in
+    match args.transpiled_filename with
+    | None -> Lang.Interpreter.interpret_program env program
+    | Some output_file ->
+      protected_out output_file (fun oc ->
+        List.iter
+          (fun line ->
+            Out_channel.output_string oc line;
+            Out_channel.output_char oc '\n')
+          (Lang.BashTranspilation.interpret_program Lang.phase_env program);
+        Out_channel.flush oc))
 ;;
