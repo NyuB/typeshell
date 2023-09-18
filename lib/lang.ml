@@ -9,7 +9,7 @@ type declaration =
   }
 
 type assignment =
-  { variable_name : string
+  { name : string
   ; expression : expr
   }
 
@@ -50,10 +50,10 @@ module AssignmentsValidation : Phase = struct
       (match SMap.find_opt name ctxt with
        | Some _ -> Error (AlreadyDeclaredVariable name)
        | _ -> Ok (SMap.add name { const } ctxt))
-    | Assign { variable_name; _ } ->
-      (match SMap.find_opt variable_name ctxt with
-       | None -> Error (UndeclaredVariable variable_name)
-       | Some { const = true } -> Error (ReassignedConstant variable_name)
+    | Assign { name; _ } ->
+      (match SMap.find_opt name ctxt with
+       | None -> Error (UndeclaredVariable name)
+       | Some { const = true } -> Error (ReassignedConstant name)
        | Some { const = false } -> Ok ctxt)
     | Echo name ->
       (match SMap.find_opt name ctxt with
@@ -82,8 +82,8 @@ module BashTranspilation :
 
   let transpile_command cmd =
     match cmd with
-    | Assign { variable_name = name; expression }
-    | Declare { name; expression; const = false } -> transpile_assign name expression
+    | Assign { name; expression } | Declare { name; expression; const = false } ->
+      transpile_assign name expression
     | Declare { name; expression; const = true } ->
       Printf.sprintf "declare -r %s" (transpile_assign name expression)
     | Echo name -> Printf.sprintf "echo \"${%s}\"" name
@@ -116,7 +116,7 @@ module Interpreter :
 
   let interpret_command ctxt cmd =
     match cmd with
-    | Assign { variable_name = name; expression } | Declare { name; expression; _ } ->
+    | Assign { name; expression } | Declare { name; expression; _ } ->
       assign_unsafe name expression ctxt
     | Echo id ->
       (match SMap.find_opt id ctxt.variables with

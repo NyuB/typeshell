@@ -28,14 +28,14 @@ declaration:
     ;
 
 assignment:
-    | variable_name = ID; EQ; s = STRING_LITERAL { Lang.{ variable_name; expression = Str s } }
-    | variable_name = ID; EQ; env_name = DOLLAR_ID { Lang.{ variable_name; expression = Env env_name } }
+    | name = ID; EQ; s = STRING_LITERAL { Lang.{ name; expression = Str s } }
+    | name = ID; EQ; env_name = DOLLAR_ID { Lang.{ name; expression = Env env_name } }
     ;
 
 const_declaration:
-    | VAL; a = assignment { Lang.{ name = a.variable_name; expression = a.expression; const = true } }
+    | VAL; a = assignment { Lang.{ name = a.name; expression = a.expression; const = true } }
     ;
 
 var_declaration:
-    | VAR; a = assignment { Lang.{ name = a.variable_name; expression = a.expression; const = false } }
+    | VAR; a = assignment { Lang.{ name = a.name; expression = a.expression; const = false } }
     ;
