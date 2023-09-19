@@ -11,7 +11,7 @@
     let extract_string_literal_content s = String.sub s 1 (String.length s - 2)
 }
 
-let id = ['a'-'z' 'A'-'Z' '_' '0'-'9']+
+let id = ['a'-'z' 'A'-'Z' '_']['a'-'z' 'A'-'Z' '_' '0'-'9']*
 let string = '"' ([^'"'] | "\\\"")* '"'
 let dollar_id = '$' '{' id '}'
 let newline = ('\r' | '\n' | "\r\n")
