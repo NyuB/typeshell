@@ -1,0 +1,6 @@
+val t = "\\t tab here <\t> this should be tabulated";
+echo t;
+val b = "\\b ko\b\bok";
+echo b;
+val f = "\\f form feed here <\f>";
+echo f;
