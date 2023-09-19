@@ -1,2 +1,2 @@
 val a = "a = A";
-echo a
+echo a;

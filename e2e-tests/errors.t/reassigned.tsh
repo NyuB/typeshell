@@ -1,2 +1,2 @@
 val a = "Declared val";
-a = "Reassigned"
+a = "Reassigned";

@@ -13,7 +13,11 @@
 %%
 
 prog:
-    | commands = separated_list(SEPARATOR, command); EOF { commands }
+    | commands = list(command_trailed); EOF { commands }
+    ;
+
+command_trailed:
+    | c = command; SEPARATOR+ { c }
     ;
 
 command:

@@ -16,6 +16,7 @@ let string = '"' ([^'"'] | "\\\"")* '"'
 let dollar_id = '$' '{' id '}'
 let newline = ('\r' | '\n' | "\r\n")
 let white = [' ' '\t']*
+let separator = ';'
 
 rule read =
   parse
@@ -25,7 +26,7 @@ rule read =
   | "var" { VAR }
   | "echo" { ECHO }
   | '=' { EQ }
-  | ';' { SEPARATOR }
+  | separator { SEPARATOR }
   | string { STRING_LITERAL (extract_string_literal_content (Lexing.lexeme lexbuf)) }
   | dollar_id { DOLLAR_ID (extract_dollar_content (Lexing.lexeme lexbuf)) }
   | id { ID ( Lexing.lexeme lexbuf ) }

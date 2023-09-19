@@ -1,1 +1,1 @@
-echo undeclared_variable
+echo undeclared_variable;
