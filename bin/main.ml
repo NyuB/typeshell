@@ -1,9 +1,7 @@
 open Typeshell
 open Lexing
 
-let apply_phases program =
-  program |> Lang.AssignmentsValidation.interpret_program Lang.phase_env
-;;
+let apply_phases program = program |> Lang.Assignments.interpret_program Lang.phase_env
 
 type args =
   { transpiled_filename : string option
@@ -53,6 +51,6 @@ let () =
           (fun line ->
             Out_channel.output_string oc line;
             Out_channel.output_char oc '\n')
-          (Lang.BashTranspilation.interpret_program Lang.phase_env program);
+          (Lang.Bash.interpret_program Lang.phase_env program);
         Out_channel.flush oc))
 ;;

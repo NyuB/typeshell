@@ -24,8 +24,6 @@ type program = command list
 module SMap = Map.Make (String)
 
 exception UndeclaredVariable of string
-exception AlreadyDeclaredVariable of string
-exception ReassignedConstant of string
 
 module type Compiler = sig
   type env
@@ -40,9 +38,12 @@ let phase_env : phase_env = ()
 
 module type Phase = Compiler with type output := program and type env := phase_env
 
-module AssignmentsValidation : Phase = struct
+module Assignments : Phase = struct
   type variable_constraints = { const : bool }
   type context = variable_constraints SMap.t
+
+  exception AlreadyDeclaredVariable of string
+  exception ReassignedConstant of string
 
   let check_declared ctxt name =
     match SMap.find_opt name ctxt with
@@ -91,8 +92,7 @@ module AssignmentsValidation : Phase = struct
   ;;
 end
 
-module BashTranspilation :
-  Compiler with type env := phase_env and type output := string list = struct
+module Bash : Compiler with type env := phase_env and type output := string list = struct
   let transpile_assign name = function
     | Env env_name ->
       Printf.sprintf "%s=\"${%s:?\"Null environment variable\"}\"" name env_name
