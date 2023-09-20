@@ -1,0 +1,5 @@
+echo "echo OK";
+val source = "test.txt";
+val target = ${TEST_TARGET};
+cp source target;
+grep "grep" target;

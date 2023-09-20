@@ -143,17 +143,28 @@ module Assignments : Phase = struct
   ;;
 end
 
-module Function_Calls : Phase = struct
+module type StandardLibrary = sig
+  val stdlib : Functions.library
+end
+
+module BashStdLib : StandardLibrary = struct
   let stdlib =
-    Functions.[ "echo", { positional_count = 0; accept_varargs = true } ]
+    Functions.
+      [ "echo", { positional_count = 0; accept_varargs = true }
+      ; "grep", { positional_count = 2; accept_varargs = true }
+      ; "cp", { positional_count = 2; accept_varargs = false }
+      ]
     |> List.to_seq
     |> SMap.of_seq
   ;;
+end
 
+module Function_Calls :
+  Compiler with type env := Functions.library and type output := program = struct
   exception UndeclaredFunction of string
   exception InvalidCall of Functions.spec_mismatch
 
-  let interpret_program (_ : phase_env) (program : program) : program =
+  let interpret_program (stdlib : Functions.library) (program : program) : program =
     let rec aux = function
       | [] -> program
       | FCall (f, args) :: t ->

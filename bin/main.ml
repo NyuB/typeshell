@@ -4,7 +4,7 @@ open Lexing
 let apply_phases program =
   program
   |> Lang.Assignments.interpret_program Lang.phase_env
-  |> Lang.Function_Calls.interpret_program Lang.phase_env
+  |> Lang.Function_Calls.interpret_program Lang.BashStdLib.stdlib
 ;;
 
 type args =
