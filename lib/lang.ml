@@ -39,6 +39,53 @@ let phase_env : phase_env = ()
 
 module type Phase = Compiler with type output := program and type env := phase_env
 
+module Functions = struct
+  type specification =
+    { positional_count : int
+    ; accept_varargs : bool
+    }
+
+  type arg_mismatch =
+    { expected : int
+    ; actual : int
+    }
+
+  type spec_mismatch =
+    | MissingArgument of arg_mismatch
+    | TooManyArguments of arg_mismatch
+
+  type spec_match =
+    | Mismatch of spec_mismatch
+    | Match_Ok
+
+  type lib_mismatch =
+    | UndeclaredFunction of string
+    | SpecMismatch of spec_mismatch
+
+  type library = specification SMap.t
+
+  let spec_allow_call args spec =
+    let arglen = List.length args in
+    if arglen < spec.positional_count
+    then Mismatch (MissingArgument { expected = spec.positional_count; actual = arglen })
+    else (
+      let no_varargs = arglen - spec.positional_count = 0 in
+      if no_varargs || spec.accept_varargs
+      then Match_Ok
+      else
+        Mismatch (TooManyArguments { expected = spec.positional_count; actual = arglen }))
+  ;;
+
+  let library_allow_call f args lib =
+    match SMap.find_opt f lib with
+    | None -> Error (UndeclaredFunction f)
+    | Some spec ->
+      (match spec_allow_call args spec with
+       | Match_Ok -> Ok ()
+       | Mismatch m -> Error (SpecMismatch m))
+  ;;
+end
+
 module Assignments : Phase = struct
   type variable_constraints = { const : bool }
   type context = variable_constraints SMap.t
@@ -98,6 +145,30 @@ module Assignments : Phase = struct
          | Ok next_ctxt -> aux next_ctxt t)
     in
     aux SMap.empty program
+  ;;
+end
+
+module Function_Calls : Phase = struct
+  let stdlib =
+    Functions.[ "echo", { positional_count = 1; accept_varargs = false } ]
+    |> List.to_seq
+    |> SMap.of_seq
+  ;;
+
+  exception UndeclaredFunction of string
+  exception InvalidCall of Functions.spec_mismatch
+
+  let interpret_program (_ : phase_env) (program : program) : program =
+    let rec aux = function
+      | [] -> program
+      | FCall (f, args) :: t ->
+        (match Functions.library_allow_call f args stdlib with
+         | Ok () -> aux t
+         | Error (UndeclaredFunction f) -> raise @@ UndeclaredFunction f
+         | Error (SpecMismatch s) -> raise @@ InvalidCall s)
+      | _ :: t -> aux t
+    in
+    aux program
   ;;
 end
 
