@@ -1,7 +1,11 @@
 open Typeshell
 open Lexing
 
-let apply_phases program = program |> Lang.Assignments.interpret_program Lang.phase_env
+let apply_phases program =
+  program
+  |> Lang.Assignments.interpret_program Lang.phase_env
+  |> Lang.Function_Calls.interpret_program Lang.phase_env
+;;
 
 type args =
   { transpiled_filename : string option

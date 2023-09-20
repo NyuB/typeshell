@@ -17,7 +17,6 @@ type assignment =
 type command =
   | Assign of assignment
   | Declare of declaration
-  | Echo of string
   | FCall of string * expr list
 
 type program = command list
@@ -122,10 +121,6 @@ module Assignments : Phase = struct
       let declared = check_declared ctxt var_name in
       Result.bind declared (fun ctxt -> check_assignable ctxt name)
     | Assign { name; _ } -> check_assignable ctxt name
-    | Echo name ->
-      (match SMap.find_opt name ctxt with
-       | None -> Error (UndeclaredVariable name)
-       | _ -> Ok ctxt)
     | FCall (_, expr) ->
       List.fold_left
         (fun acc e ->
@@ -150,7 +145,7 @@ end
 
 module Function_Calls : Phase = struct
   let stdlib =
-    Functions.[ "echo", { positional_count = 1; accept_varargs = false } ]
+    Functions.[ "echo", { positional_count = 0; accept_varargs = true } ]
     |> List.to_seq
     |> SMap.of_seq
   ;;
@@ -187,7 +182,6 @@ module Bash : Compiler with type env := phase_env and type output := string list
       transpile_assign name expression
     | Declare { name; expression; const = true } ->
       Printf.sprintf "declare -r %s" (transpile_assign name expression)
-    | Echo name -> Printf.sprintf "echo \"${%s}\"" name
     | FCall (f, args) ->
       Printf.sprintf "%s %s" f (String.concat " " (List.map expr_repr args))
   ;;
@@ -236,12 +230,9 @@ module Interpreter :
     match cmd with
     | Assign { name; expression } | Declare { name; expression; _ } ->
       assign_unsafe name expression ctxt
-    | Echo id ->
-      (match SMap.find_opt id ctxt.variables with
-       | None -> raise (UndeclaredVariable id)
-       | Some v ->
-         let () = print_endline v in
-         ctxt)
+    | FCall ("echo", expr) ->
+      let () = print_endline (String.concat " " (List.map (value_unsafe ctxt) expr)) in
+      ctxt
     | FCall (f, args) ->
       let () =
         print_endline

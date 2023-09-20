@@ -24,7 +24,6 @@ rule read =
   | newline  {  new_line lexbuf; read lexbuf }
   | "val" { VAL }
   | "var" { VAR }
-  | "echo" { ECHO }
   | '=' { EQ }
   | separator { SEPARATOR }
   | '"' { read_string (Buffer.create 0) lexbuf }

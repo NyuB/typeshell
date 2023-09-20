@@ -1,0 +1,4 @@
+echo "String";
+echo ${TEST_ENV};
+val a = "Variable";
+echo a;

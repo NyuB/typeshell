@@ -1,6 +1,5 @@
 %token <string> DOLLAR_ID
 %token EQ
-%token ECHO
 %token <string> ID
 %token SEPARATOR
 %token <string> STRING_LITERAL
@@ -21,7 +20,6 @@ command_trailed:
     ;
 
 command:
-    | ECHO; id = ID { Echo id }
     | fc = function_call { let f,a = fc in FCall (f,a) }
     | a = assignment { Assign a }
     | d = declaration { Declare d }
