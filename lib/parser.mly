@@ -22,6 +22,7 @@ command_trailed:
 
 command:
     | ECHO; id = ID { Echo id }
+    | fc = function_call { let f,a = fc in FCall (f,a) }
     | a = assignment { Assign a }
     | d = declaration { Declare d }
     ;
@@ -32,9 +33,7 @@ declaration:
     ;
 
 assignment:
-    | name = ID; EQ; s = STRING_LITERAL { Lang.{ name; expression = Str s } }
-    | name = ID; EQ; env_name = DOLLAR_ID { Lang.{ name; expression = Env env_name } }
-    | name = ID; EQ; var_name = ID { Lang.{ name; expression = Var var_name } }
+    | name = ID; EQ; e = expression { Lang.{ name; expression = e } }
     ;
 
 const_declaration:
@@ -43,4 +42,14 @@ const_declaration:
 
 var_declaration:
     | VAR; a = assignment { Lang.{ name = a.name; expression = a.expression; const = false } }
+    ;
+
+expression:
+    | s = STRING_LITERAL { Lang.(Str s) }
+    | env_name = DOLLAR_ID { Lang.(Env env_name) }
+    | var_name = ID { Lang.(Var var_name) }
+    ;
+
+function_call:
+    | f = ID; el = expression * { (f, el) }
     ;

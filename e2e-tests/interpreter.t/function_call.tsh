@@ -1,0 +1,2 @@
+val a = "A";
+some_fun a;

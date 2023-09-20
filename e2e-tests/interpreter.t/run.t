@@ -17,3 +17,7 @@ Mutable variable
   Mutable ?
   Mutated !
   Mutable ?
+
+Function call
+  $ typeshell function_call.tsh
+  some_fun(A)

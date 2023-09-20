@@ -18,6 +18,7 @@ type command =
   | Assign of assignment
   | Declare of declaration
   | Echo of string
+  | FCall of string * expr list
 
 type program = command list
 
@@ -78,6 +79,14 @@ module Assignments : Phase = struct
       (match SMap.find_opt name ctxt with
        | None -> Error (UndeclaredVariable name)
        | _ -> Ok ctxt)
+    | FCall (_, expr) ->
+      List.fold_left
+        (fun acc e ->
+          match e with
+          | Var var_name -> Result.bind acc (fun _ -> check_declared ctxt var_name)
+          | _ -> acc)
+        (Ok ctxt)
+        expr
   ;;
 
   let interpret_program (_ : phase_env) (program : program) : program =
@@ -93,12 +102,13 @@ module Assignments : Phase = struct
 end
 
 module Bash : Compiler with type env := phase_env and type output := string list = struct
-  let transpile_assign name = function
-    | Env env_name ->
-      Printf.sprintf "%s=\"${%s:?\"Null environment variable\"}\"" name env_name
-    | Str str -> Printf.sprintf "%s='%s'" name str
-    | Var varname -> Printf.sprintf "%s=\"${%s}\"" name varname
+  let expr_repr = function
+    | Env env_name -> Printf.sprintf "\"${%s:?\"Null environment variable\"}\"" env_name
+    | Str str -> Printf.sprintf "'%s'" str
+    | Var var_name -> Printf.sprintf "\"${%s}\"" var_name
   ;;
+
+  let transpile_assign name expr = Printf.sprintf "%s=%s" name (expr_repr expr)
 
   let transpile_command cmd =
     match cmd with
@@ -107,6 +117,8 @@ module Bash : Compiler with type env := phase_env and type output := string list
     | Declare { name; expression; const = true } ->
       Printf.sprintf "declare -r %s" (transpile_assign name expression)
     | Echo name -> Printf.sprintf "echo \"${%s}\"" name
+    | FCall (f, args) ->
+      Printf.sprintf "%s %s" f (String.concat " " (List.map expr_repr args))
   ;;
 
   let interpret_program _ program =
@@ -123,17 +135,27 @@ module Interpreter :
 
   exception NullEnvironmentVariable of string
 
+  let env_unsafe ctxt env_name =
+    match ctxt.env env_name with
+    | None | Some "" -> raise (NullEnvironmentVariable env_name)
+    | Some value -> value
+  ;;
+
+  let value_unsafe ctxt = function
+    | Str s -> s
+    | Var var_name -> SMap.find var_name ctxt.variables
+    | Env env_name -> env_unsafe ctxt env_name
+  ;;
+
   let assign_unsafe name expr ctxt =
     match expr with
     | Str s ->
       let variables = SMap.add name s ctxt.variables in
       { ctxt with variables }
     | Env env_name ->
-      (match ctxt.env env_name with
-       | None | Some "" -> raise (NullEnvironmentVariable env_name)
-       | Some value ->
-         let variables = SMap.add name value ctxt.variables in
-         { ctxt with variables })
+      let value = env_unsafe ctxt env_name in
+      let variables = SMap.add name value ctxt.variables in
+      { ctxt with variables }
     | Var var_name ->
       let variables = SMap.add name (SMap.find var_name ctxt.variables) ctxt.variables in
       { ctxt with variables }
@@ -149,6 +171,15 @@ module Interpreter :
        | Some v ->
          let () = print_endline v in
          ctxt)
+    | FCall (f, args) ->
+      let () =
+        print_endline
+        @@ Printf.sprintf
+             "%s(%s)"
+             f
+             (String.concat ", " (List.map (value_unsafe ctxt) args))
+      in
+      ctxt
   ;;
 
   let interpret_program env program =
