@@ -1,6 +1,6 @@
 val a = "A";
 echo a;
-var test_env = ${TEST_ENV};
-echo test_env;
-val b = a;
-echo b;
+var test_var = ${TEST_ENV};
+echo test_var;
+test_var = a;
+echo test_var;
