@@ -1,6 +1,7 @@
 type expr =
   | Env of string
   | Str of string
+  | Var of string
 
 type declaration =
   { name : string
@@ -43,17 +44,35 @@ module AssignmentsValidation : Phase = struct
   type variable_constraints = { const : bool }
   type context = variable_constraints SMap.t
 
+  let check_declared ctxt name =
+    match SMap.find_opt name ctxt with
+    | Some _ -> Ok ctxt
+    | None -> Error (UndeclaredVariable name)
+  ;;
+
+  let declare ctxt name const =
+    match SMap.find_opt name ctxt with
+    | Some _ -> Error (AlreadyDeclaredVariable name)
+    | _ -> Ok (SMap.add name { const } ctxt)
+  ;;
+
+  let check_assignable ctxt name =
+    match SMap.find_opt name ctxt with
+    | None -> Error (UndeclaredVariable name)
+    | Some { const = true } -> Error (ReassignedConstant name)
+    | Some { const = false } -> Ok ctxt
+  ;;
+
   let interpret_command (ctxt : context) (command : command) : (context, exn) result =
     match command with
-    | Declare { name; const; _ } ->
-      (match SMap.find_opt name ctxt with
-       | Some _ -> Error (AlreadyDeclaredVariable name)
-       | _ -> Ok (SMap.add name { const } ctxt))
-    | Assign { name; _ } ->
-      (match SMap.find_opt name ctxt with
-       | None -> Error (UndeclaredVariable name)
-       | Some { const = true } -> Error (ReassignedConstant name)
-       | Some { const = false } -> Ok ctxt)
+    | Declare { name; const; expression = Var var_name } ->
+      let declared = check_declared ctxt var_name in
+      Result.bind declared (fun ctxt -> declare ctxt name const)
+    | Declare { name; const; _ } -> declare ctxt name const
+    | Assign { name; expression = Var var_name } ->
+      let declared = check_declared ctxt var_name in
+      Result.bind declared (fun ctxt -> check_assignable ctxt name)
+    | Assign { name; _ } -> check_assignable ctxt name
     | Echo name ->
       (match SMap.find_opt name ctxt with
        | None -> Error (UndeclaredVariable name)
@@ -78,6 +97,7 @@ module BashTranspilation :
     | Env env_name ->
       Printf.sprintf "%s=\"${%s:?\"Null environment variable\"}\"" name env_name
     | Str str -> Printf.sprintf "%s='%s'" name str
+    | Var varname -> Printf.sprintf "%s=\"${%s}\"" name varname
   ;;
 
   let transpile_command cmd =
@@ -114,6 +134,9 @@ module Interpreter :
        | Some value ->
          let variables = SMap.add name value ctxt.variables in
          { ctxt with variables })
+    | Var var_name ->
+      let variables = SMap.add name (SMap.find var_name ctxt.variables) ctxt.variables in
+      { ctxt with variables }
   ;;
 
   let interpret_command ctxt cmd =

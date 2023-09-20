@@ -1,1 +1,2 @@
-undeclared_variable = "A";
+var a = "Initial";
+a = undeclared_variable;

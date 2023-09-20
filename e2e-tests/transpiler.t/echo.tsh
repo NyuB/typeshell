@@ -2,3 +2,5 @@ val a = "A";
 echo a;
 var test_env = ${TEST_ENV};
 echo test_env;
+val b = a;
+echo b;

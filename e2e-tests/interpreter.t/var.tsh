@@ -1,4 +1,6 @@
 var a = "Mutable ?";
 echo a;
+val b = a;
 a = "Mutated !";
 echo a;
+echo b;

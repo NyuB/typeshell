@@ -16,3 +16,4 @@ Mutable variable
   $ typeshell var.tsh
   Mutable ?
   Mutated !
+  Mutable ?

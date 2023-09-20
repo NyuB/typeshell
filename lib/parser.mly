@@ -34,6 +34,7 @@ declaration:
 assignment:
     | name = ID; EQ; s = STRING_LITERAL { Lang.{ name; expression = Str s } }
     | name = ID; EQ; env_name = DOLLAR_ID { Lang.{ name; expression = Env env_name } }
+    | name = ID; EQ; var_name = ID { Lang.{ name; expression = Var var_name } }
     ;
 
 const_declaration:

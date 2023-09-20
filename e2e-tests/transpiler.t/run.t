@@ -7,10 +7,13 @@ Echo
   echo "${a}"
   test_env="${TEST_ENV:?"Null environment variable"}"
   echo "${test_env}"
+  declare -r b="${a}"
+  echo "${b}"
   $ chmod +x echo.sh
   $ TEST_ENV=B ./echo.sh
   A
   B
+  A
 Missing env fails
   $ ./echo.sh
   A
