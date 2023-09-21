@@ -179,6 +179,10 @@ module Function_Calls :
 end
 
 module Bash : Compiler with type env := phase_env and type output := string list = struct
+  let shebang = "#!/bin/bash"
+  let fail_fast_flags = "set -e"
+  let blank_line = ""
+
   let expr_repr = function
     | Env env_name -> Printf.sprintf "\"${%s:?\"Null environment variable\"}\"" env_name
     | Str str -> Printf.sprintf "'%s'" str
@@ -198,7 +202,7 @@ module Bash : Compiler with type env := phase_env and type output := string list
   ;;
 
   let interpret_program _ program =
-    "#!/bin/bash" :: "" :: List.map transpile_command program
+    shebang :: fail_fast_flags :: blank_line :: List.map transpile_command program
   ;;
 end
 

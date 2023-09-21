@@ -1,0 +1,3 @@
+echo "Before error";
+grep "--not-an-option" "test.txt";
+echo "After error";
