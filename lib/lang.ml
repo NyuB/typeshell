@@ -14,10 +14,16 @@ type assignment =
   ; expression : expr
   }
 
+type call_argument =
+  | Labeled of string * expr
+  | OptionKeyValue of string * expr
+  | OptionFlag of string
+  | Raw of expr
+
 type command =
   | Assign of assignment
   | Declare of declaration
-  | FCall of string * expr list
+  | FCall of string * call_argument list
 
 type program = command list
 
@@ -39,10 +45,28 @@ let phase_env : phase_env = ()
 module type Phase = Compiler with type output := program and type env := phase_env
 
 module Functions = struct
+  type option_specification =
+    | Flag of string
+    | WithValue of string
+
+  type arg_specification =
+    | Labeled of string
+    | Option of option_specification
+    | Positional
+
   type specification =
-    { positional_count : int
+    { arguments : arg_specification list
     ; accept_varargs : bool
     }
+
+  let positional_count specification =
+    List.length
+      (List.filter
+         (function
+          | Option _ -> false
+          | _ -> true)
+         specification.arguments)
+  ;;
 
   type arg_mismatch =
     { expected : int
@@ -55,7 +79,7 @@ module Functions = struct
 
   type spec_match =
     | Mismatch of spec_mismatch
-    | Match_Ok
+    | Match_Ok of call_argument list
 
   type lib_mismatch =
     | UndeclaredFunction of string
@@ -65,14 +89,14 @@ module Functions = struct
 
   let spec_allow_call args spec =
     let arglen = List.length args in
-    if arglen < spec.positional_count
-    then Mismatch (MissingArgument { expected = spec.positional_count; actual = arglen })
+    let pos_spec = positional_count spec in
+    if arglen < pos_spec
+    then Mismatch (MissingArgument { expected = pos_spec; actual = arglen })
     else (
-      let no_varargs = arglen - spec.positional_count = 0 in
+      let no_varargs = arglen - pos_spec = 0 in
       if no_varargs || spec.accept_varargs
-      then Match_Ok
-      else
-        Mismatch (TooManyArguments { expected = spec.positional_count; actual = arglen }))
+      then Match_Ok args
+      else Mismatch (TooManyArguments { expected = pos_spec; actual = arglen }))
   ;;
 
   let library_allow_call f args lib =
@@ -80,7 +104,7 @@ module Functions = struct
     | None -> Error (UndeclaredFunction f)
     | Some spec ->
       (match spec_allow_call args spec with
-       | Match_Ok -> Ok ()
+       | Match_Ok args -> Ok args
        | Mismatch m -> Error (SpecMismatch m))
   ;;
 end
@@ -125,7 +149,10 @@ module Assignments : Phase = struct
       List.fold_left
         (fun acc e ->
           match e with
-          | Var var_name -> Result.bind acc (fun _ -> check_declared ctxt var_name)
+          | Raw (Var var_name)
+          | Labeled (_, Var var_name)
+          | OptionKeyValue (_, Var var_name) ->
+            Result.bind acc (fun _ -> check_declared ctxt var_name)
           | _ -> acc)
         (Ok ctxt)
         expr
@@ -150,9 +177,9 @@ end
 module BashStdLib : StandardLibrary = struct
   let stdlib =
     Functions.
-      [ "echo", { positional_count = 0; accept_varargs = true }
-      ; "grep", { positional_count = 2; accept_varargs = true }
-      ; "cp", { positional_count = 2; accept_varargs = false }
+      [ "echo", { arguments = []; accept_varargs = true }
+      ; "grep", { arguments = [ Positional; Positional ]; accept_varargs = true }
+      ; "cp", { arguments = [ Positional; Positional ]; accept_varargs = false }
       ]
     |> List.to_seq
     |> SMap.of_seq
@@ -165,16 +192,18 @@ module Function_Calls :
   exception InvalidCall of Functions.spec_mismatch
 
   let interpret_program (stdlib : Functions.library) (program : program) : program =
-    let rec aux = function
-      | [] -> program
+    let rec aux acc = function
+      | [] -> List.rev acc
       | FCall (f, args) :: t ->
         (match Functions.library_allow_call f args stdlib with
-         | Ok () -> aux t
+         | Ok args ->
+           let reordered_fcall = FCall (f, args) in
+           aux (reordered_fcall :: acc) t
          | Error (UndeclaredFunction f) -> raise @@ UndeclaredFunction f
          | Error (SpecMismatch s) -> raise @@ InvalidCall s)
-      | _ :: t -> aux t
+      | cmd :: t -> aux (cmd :: acc) t
     in
-    aux program
+    aux [] program
   ;;
 end
 
@@ -189,6 +218,12 @@ module Bash : Compiler with type env := phase_env and type output := string list
     | Var var_name -> Printf.sprintf "\"${%s}\"" var_name
   ;;
 
+  let arg_repr = function
+    | Raw e | Labeled (_, e) -> expr_repr e
+    | OptionKeyValue (k, v) -> Printf.sprintf "%s=%s" k (expr_repr v)
+    | OptionFlag f -> f
+  ;;
+
   let transpile_assign name expr = Printf.sprintf "%s=%s" name (expr_repr expr)
 
   let transpile_command cmd =
@@ -198,7 +233,7 @@ module Bash : Compiler with type env := phase_env and type output := string list
     | Declare { name; expression; const = true } ->
       Printf.sprintf "declare -r %s" (transpile_assign name expression)
     | FCall (f, args) ->
-      Printf.sprintf "%s %s" f (String.concat " " (List.map expr_repr args))
+      Printf.sprintf "%s %s" f (String.concat " " (List.map arg_repr args))
   ;;
 
   let interpret_program _ program =
@@ -227,6 +262,12 @@ module Interpreter :
     | Env env_name -> env_unsafe ctxt env_name
   ;;
 
+  let argument_value_unsafe ctxt = function
+    | OptionFlag f -> f
+    | OptionKeyValue (k, v) -> Printf.sprintf "%s=%s" k (value_unsafe ctxt v)
+    | Raw e | Labeled (_, e) -> value_unsafe ctxt e
+  ;;
+
   let assign_unsafe name expr ctxt =
     match expr with
     | Str s ->
@@ -246,7 +287,9 @@ module Interpreter :
     | Assign { name; expression } | Declare { name; expression; _ } ->
       assign_unsafe name expression ctxt
     | FCall ("echo", expr) ->
-      let () = print_endline (String.concat " " (List.map (value_unsafe ctxt) expr)) in
+      let () =
+        print_endline (String.concat " " (List.map (argument_value_unsafe ctxt) expr))
+      in
       ctxt
     | FCall (f, args) ->
       let () =
@@ -254,7 +297,7 @@ module Interpreter :
         @@ Printf.sprintf
              "%s(%s)"
              f
-             (String.concat ", " (List.map (value_unsafe ctxt) args))
+             (String.concat ", " (List.map (argument_value_unsafe ctxt) args))
       in
       ctxt
   ;;

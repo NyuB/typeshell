@@ -20,7 +20,7 @@ command_trailed:
     ;
 
 command:
-    | fc = function_call { let f,a = fc in FCall (f,a) }
+    | fc = function_call { let f,a = fc in FCall (f, List.map (fun i -> Lang.Raw i) a) }
     | a = assignment { Assign a }
     | d = declaration { Declare d }
     ;
