@@ -1,2 +1,2 @@
-grep OK
+grep OK (this line should appear twice)
 salsifi

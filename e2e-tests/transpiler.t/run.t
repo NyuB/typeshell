@@ -46,10 +46,12 @@ Standard library
   declare -r target="${TEST_TARGET:?"Null environment variable"}"
   cp "${source}" "${target}"
   grep 'grep' "${target}"
+  grep -v 'salsifi' "${target}"
   $ chmod +x stdlib.sh
   $ TEST_TARGET=target.txt ./stdlib.sh
   echo OK
-  grep OK
+  grep OK (this line should appear twice)
+  grep OK (this line should appear twice)
   $ rm target.txt
 
 Cleanup

@@ -1,10 +1,11 @@
 %token COLON
 %token <string> DOLLAR_ID
+%token EOF
 %token EQ
 %token <string> ID
+%token <string> OPTION
 %token SEPARATOR
 %token <string> STRING_LITERAL
-%token EOF
 %token VAL
 %token VAR
 
@@ -52,6 +53,7 @@ expression:
 arg_pass:
     | e = expression { Lang.(Raw e) }
     | label = ID; COLON; e = expression { Lang.(Labeled (label, e)) }
+    | opt = OPTION; { Lang.(OptionFlag opt) }
 
 function_call:
     | f = ID; el = arg_pass * { Lang.FCall(f, el) }

@@ -85,7 +85,10 @@ module BashStdLib : StandardLibrary = struct
   let stdlib =
     Functions_spec.
       [ "echo", { arguments = []; accept_varargs = true }
-      ; "grep", { arguments = [ Positional; Positional ]; accept_varargs = true }
+      ; ( "grep"
+        , { arguments = [ Option (Flag "-v"); Positional; Positional ]
+          ; accept_varargs = true
+          } )
       ; "cp", { arguments = [ Labeled "from"; Labeled "to" ]; accept_varargs = false }
       ]
     |> List.to_seq

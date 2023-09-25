@@ -9,14 +9,21 @@
 
     (* Remove surrounding '"' *)
     let extract_string_literal_content s = String.sub s 1 (String.length s - 2)
+
+    (* Remove n leading characters *)
+    let remove_first_n n s = String.sub s n (String.length s - n)
 }
 
-let id = ['a'-'z' 'A'-'Z' '_']['a'-'z' 'A'-'Z' '_' '0'-'9']*
+let word_char = ['a'-'z' 'A'-'Z' '_' '0'-'9']
+let id = ['a'-'z' 'A'-'Z' '_'] word_char*
 let string = '"' ([^'"'] | "\\\"")* '"'
 let dollar_id = '$' '{' id '}'
 let newline = ('\r' | '\n' | "\r\n")
 let white = [' ' '\t']*
 let separator = ';'
+let short_option = '-' ['a' - 'z' 'A' - 'Z']
+let option_name = word_char (word_char | '-')*
+let long_option = "--" option_name
 
 rule read =
   parse
@@ -30,6 +37,7 @@ rule read =
   | '"' { read_string (Buffer.create 0) lexbuf }
   | dollar_id { DOLLAR_ID (extract_dollar_content (Lexing.lexeme lexbuf)) }
   | id { ID ( Lexing.lexeme lexbuf ) }
+  | short_option | long_option { OPTION (Lexing.lexeme lexbuf) }
   | _ { raise (SyntaxError (Printf.sprintf "Unexpected char: %s" (Lexing.lexeme lexbuf))) }
   | eof      { EOF }
   and read_string buf =
