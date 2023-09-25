@@ -6,5 +6,5 @@ Argument expression modes
 
 Unknown function
   $ typeshell unknown.tsh
-  Fatal error: exception Typeshell.Lang.Function_Calls.UndeclaredFunction("some_fun")
+  Fatal error: exception Typeshell.Compiler.Function_Calls.UndeclaredFunction("some_fun")
   [2]

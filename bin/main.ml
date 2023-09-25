@@ -3,8 +3,8 @@ open Lexing
 
 let apply_phases program =
   program
-  |> Lang.Assignments.interpret_program Lang.phase_env
-  |> Lang.Function_Calls.interpret_program Lang.BashStdLib.stdlib
+  |> Compiler.Assignments.interpret_program Compiler.phase_env
+  |> Compiler.Function_Calls.interpret_program Compiler.BashStdLib.stdlib
 ;;
 
 type args =
@@ -50,14 +50,14 @@ let () =
       match args.transpiled_filename with
       | None ->
         let env = Sys.getenv_opt in
-        Lang.Interpreter.interpret_program env program
+        Compiler.Interpreter.interpret_program env program
       | Some output_file ->
         protected_out output_file (fun oc ->
           List.iter
             (fun line ->
               Out_channel.output_string oc line;
               Out_channel.output_char oc '\n')
-            (Lang.Bash.interpret_program Lang.phase_env program);
+            (Compiler.Bash.interpret_program Compiler.phase_env program);
           Out_channel.flush oc))
   with
   | exn ->
