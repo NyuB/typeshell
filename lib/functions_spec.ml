@@ -15,6 +15,15 @@ type specification =
   ; accept_varargs : bool
   }
 
+let non_option_arg_count args =
+  List.length
+    (List.filter
+       (function
+        | OptionFlag _ | OptionKeyValue _ -> false
+        | _ -> true)
+       args)
+;;
+
 let positional_count specification =
   List.length
     (List.filter
@@ -33,6 +42,7 @@ type spec_mismatch =
   | MissingArgument of arg_mismatch
   | TooManyArguments of arg_mismatch
   | InvalidLabel of string
+  | InvalidOption of string
 
 type spec_match =
   | Mismatch of spec_mismatch
@@ -43,6 +53,8 @@ type lib_mismatch =
   | SpecMismatch of spec_mismatch
 
 type library = specification SMap.t
+
+let ok = Ok ()
 
 module Arg_Reordering : sig
   (** [ reordered_arg_list args spec ] returns an array containing the same elements as [args] with the labeled arguments reordered to match [spec.arguments].
@@ -82,11 +94,23 @@ end = struct
       args
   ;;
 
+  let insert_options args spec arr =
+    let spec_arr = Array.of_list spec.arguments in
+    List.iter
+      (fun (a : call_argument) ->
+        match a with
+        | OptionFlag f -> arr.(find_index_unsafe (Option (Flag f)) spec_arr) <- Some a
+        | OptionKeyValue (k, _) ->
+          arr.(find_index_unsafe (Option (WithValue k)) spec_arr) <- Some a
+        | _ -> ())
+      args
+  ;;
+
   let insert_unlabeled args arr =
     List.iter
       (fun (a : call_argument) ->
         match a with
-        | Labeled _ -> ()
+        | Labeled _ | OptionFlag _ | OptionKeyValue _ -> ()
         | _ -> insert_at_first_empty_slot a arr)
       args
   ;;
@@ -96,6 +120,7 @@ end = struct
     =
     let result_arr = Array.make (List.length args) None in
     insert_labels args spec result_arr;
+    insert_options args spec result_arr;
     insert_unlabeled args result_arr;
     result_arr |> Array.map Option.get |> Array.to_list
   ;;
@@ -109,14 +134,32 @@ let check_labels args spec =
         | Labeled (l, _) ->
           (match List.find_opt (( = ) (Labeled l)) spec with
            | None -> Error l
-           | Some _ -> Ok ())
-        | _ -> Ok ()))
-    (Ok ())
+           | Some _ -> ok)
+        | _ -> ok))
+    ok
+    args
+;;
+
+let check_options args spec =
+  List.fold_left
+    (fun acc (arg : call_argument) ->
+      Result.bind acc (fun _ ->
+        match arg with
+        | OptionFlag f ->
+          (match List.find_opt (( = ) (Option (Flag f))) spec with
+           | None -> Error f
+           | Some _ -> ok)
+        | OptionKeyValue (k, _) ->
+          (match List.find_opt (( = ) (Option (WithValue k))) spec with
+           | None -> Error k
+           | Some _ -> ok)
+        | _ -> ok))
+    ok
     args
 ;;
 
 let allow_arg_count args spec =
-  let arglen = List.length args in
+  let arglen = non_option_arg_count args in
   let pos_spec = positional_count spec in
   if arglen < pos_spec
   then Mismatch (MissingArgument { expected = pos_spec; actual = arglen })
@@ -130,8 +173,11 @@ let allow_arg_count args spec =
 let spec_allow_call args spec =
   match check_labels args spec.arguments with
   | Ok () ->
-    let reordered = Arg_Reordering.reordered_arg_list args spec in
-    allow_arg_count reordered spec
+    (match check_options args spec.arguments with
+     | Ok () ->
+       let reordered = Arg_Reordering.reordered_arg_list args spec in
+       allow_arg_count reordered spec
+     | Error o -> Mismatch (InvalidOption o))
   | Error l -> Mismatch (InvalidLabel l)
 ;;
 

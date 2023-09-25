@@ -11,7 +11,9 @@ let spec_mismatch_format ppf (s : Functions_spec.spec_mismatch) =
     Format.pp_print_string
       ppf
       (Printf.sprintf "MissingArgument { expected = %d; actual = %d }" expected actual)
-  | InvalidLabel l -> Format.pp_print_string ppf (Printf.sprintf "InvalidLabel %s" l)
+  | InvalidLabel l -> Format.pp_print_string ppf (Printf.sprintf "InvalidLabel \"%s\"" l)
+  | InvalidOption o ->
+    Format.pp_print_string ppf (Printf.sprintf "InvalidOption \"%s\"" o)
 ;;
 
 let spec_arg_format ppf (a : call_argument) =
@@ -178,10 +180,87 @@ let example_one_flag_option_no_arg () =
     (Functions_spec.spec_allow_call args spec)
 ;;
 
+let example_one_flag_option_option_passed () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (Flag "verbose") ]; accept_varargs = false }
+  in
+  let args = [ OptionFlag "verbose" ] in
+  Alcotest.(check spec_match_testable)
+    "Expected ok"
+    (Functions_spec.Match_Ok [ OptionFlag "verbose" ])
+    (Functions_spec.spec_allow_call args spec)
+;;
+
+let example_one_flag_option_invalid_option_passed () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (Flag "verbose") ]; accept_varargs = false }
+  in
+  let args = [ OptionFlag "nounbose" ] in
+  Alcotest.(check spec_match_testable)
+    "Expected invalid option"
+    (Functions_spec.Mismatch (InvalidOption "nounbose"))
+    (Functions_spec.spec_allow_call args spec)
+;;
+
+let example_one_flag_option_invalid_vararg_passed () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (Flag "verbose") ]; accept_varargs = false }
+  in
+  let args = [ Raw (Str "var1") ] in
+  Alcotest.(check spec_match_testable)
+    "Expected invalid option"
+    (Functions_spec.Mismatch (TooManyArguments { expected = 0; actual = 1 }))
+    (Functions_spec.spec_allow_call args spec)
+;;
+
+let example_one_flag_option_only_varargs_passed () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (Flag "verbose") ]; accept_varargs = true }
+  in
+  let args = [ Raw (Str "var1"); Raw (Str "var2") ] in
+  Alcotest.(check spec_match_testable)
+    "Expected ok"
+    (Functions_spec.Match_Ok [ Raw (Str "var1"); Raw (Str "var2") ])
+    (Functions_spec.spec_allow_call args spec)
+;;
+
+let example_invalid_value_for_flag () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (Flag "verbose") ]; accept_varargs = false }
+  in
+  let args = [ OptionKeyValue ("verbose", Str "unexpected_value") ] in
+  Alcotest.(check spec_match_testable)
+    "Expected mismatch"
+    (Functions_spec.Mismatch (InvalidOption "verbose"))
+    (Functions_spec.spec_allow_call args spec)
+;;
+
+let example_mixed_reversed () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (WithValue "verbose"); Labeled "label"; Positional ]
+    ; accept_varargs = false
+    }
+  in
+  let args =
+    [ Raw (Str "var1")
+    ; Labeled ("label", Str "labeled")
+    ; OptionKeyValue ("verbose", Str "1")
+    ]
+  in
+  Alcotest.(check spec_match_testable)
+    "Expected ok"
+    (Functions_spec.Match_Ok
+       [ OptionKeyValue ("verbose", Str "1")
+       ; Labeled ("label", Str "labeled")
+       ; Raw (Str "var1")
+       ])
+    (Functions_spec.spec_allow_call args spec)
+;;
+
 let () =
   Alcotest.run
-    "Typeshell language"
-    [ ( "Function specification"
+    "Function specification"
+    [ ( "Positionals"
       , [ "0 allowed, 1 passed", `Quick, example_specification_too_many_args
         ; "2 required, 1 passed", `Quick, example_specification_not_enough_args
         ; "0 allowed, 0 passed", `Quick, example_specification_no_arg_ok
@@ -194,7 +273,9 @@ let () =
         ; ( "1 allowed with vararg, 0 passed"
           , `Quick
           , example_specification_varargs_missing_required )
-        ; "1 labeled, 1 raw passed", `Quick, example_specification_label_accept_no_label
+        ] )
+    ; ( "Labeled"
+      , [ "1 labeled, 1 raw passed", `Quick, example_specification_label_accept_no_label
         ; "1 invalid label", `Quick, example_specification_wrong_label
         ; "reordered label then vararg", `Quick, example_vararg_after_reorder
         ; ( "reordered label then invalid vararg"
@@ -203,7 +284,25 @@ let () =
         ; ( "reordered 2nd labeled arg to its 1st spec position"
           , `Quick
           , example_specification_reorder_label )
-        ; "one option, 0 arg passed", `Quick, example_one_flag_option_no_arg
         ] )
+    ; ( "Options"
+      , [ "one option, 0 arg passed", `Quick, example_one_flag_option_no_arg
+        ; ( "one option, only varargs passed"
+          , `Quick
+          , example_one_flag_option_only_varargs_passed )
+        ; ( "one option, invalid vararg passed"
+          , `Quick
+          , example_one_flag_option_invalid_vararg_passed )
+        ; ( "one option, invalid option passed"
+          , `Quick
+          , example_one_flag_option_invalid_option_passed )
+        ; ( "one option, call with this option"
+          , `Quick
+          , example_one_flag_option_option_passed )
+        ; ( "one flag option, call with invalid value"
+          , `Quick
+          , example_invalid_value_for_flag )
+        ] )
+    ; "Mixed examples", [ "Reverse passing order", `Quick, example_mixed_reversed ]
     ]
 ;;

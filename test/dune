@@ -1,3 +1,3 @@
 (tests
- (names lang_test)
+ (names functions_spec_test)
  (libraries alcotest typeshell))
