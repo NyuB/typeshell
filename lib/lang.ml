@@ -260,7 +260,7 @@ module BashStdLib : StandardLibrary = struct
     Functions.
       [ "echo", { arguments = []; accept_varargs = true }
       ; "grep", { arguments = [ Positional; Positional ]; accept_varargs = true }
-      ; "cp", { arguments = [ Positional; Positional ]; accept_varargs = false }
+      ; "cp", { arguments = [ Labeled "from"; Labeled "to" ]; accept_varargs = false }
       ]
     |> List.to_seq
     |> SMap.of_seq

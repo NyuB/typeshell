@@ -1,5 +1,5 @@
 echo "echo OK";
 val source = "test.txt";
 val target = ${TEST_TARGET};
-cp source target;
+cp from:source to:target;
 grep "grep" target;

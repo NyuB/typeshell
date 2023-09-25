@@ -1,3 +1,4 @@
+%token COLON
 %token <string> DOLLAR_ID
 %token EQ
 %token <string> ID
@@ -20,7 +21,7 @@ command_trailed:
     ;
 
 command:
-    | fc = function_call { let f,a = fc in FCall (f, List.map (fun i -> Lang.Raw i) a) }
+    | fc = function_call { fc }
     | a = assignment { Assign a }
     | d = declaration { Declare d }
     ;
@@ -48,6 +49,10 @@ expression:
     | var_name = ID { Lang.(Var var_name) }
     ;
 
+arg_pass:
+    | e = expression { Lang.(Raw e) }
+    | label = ID; COLON; e = expression { Lang.(Labeled (label, e)) }
+
 function_call:
-    | f = ID; el = expression * { (f, el) }
+    | f = ID; el = arg_pass * { Lang.FCall(f, el) }
     ;

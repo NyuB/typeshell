@@ -25,6 +25,7 @@ rule read =
   | "val" { VAL }
   | "var" { VAR }
   | '=' { EQ }
+  | ':' { COLON }
   | separator { SEPARATOR }
   | '"' { read_string (Buffer.create 0) lexbuf }
   | dollar_id { DOLLAR_ID (extract_dollar_content (Lexing.lexeme lexbuf)) }
