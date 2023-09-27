@@ -11,10 +11,11 @@ module type Compiler = sig
 end
 
 type phase_env = unit
+type program_result = (program, exn list) result
 
 let phase_env : phase_env = ()
 
-module type Phase = Compiler with type output := program and type env := phase_env
+module type Phase = Compiler with type output := program_result and type env := phase_env
 
 module Assignments : Phase = struct
   type variable_constraints = { const : bool }
@@ -65,9 +66,9 @@ module Assignments : Phase = struct
         expr
   ;;
 
-  let interpret_program (_ : phase_env) (program : program) : program =
+  let interpret_program (_ : phase_env) (program : program) : program_result =
     let rec aux ctxt = function
-      | [] -> program
+      | [] -> Ok program
       | cmd :: t ->
         (match interpret_command ctxt cmd with
          | Error e -> raise e
@@ -97,23 +98,24 @@ module BashStdLib : StandardLibrary = struct
 end
 
 module Function_Calls :
-  Compiler with type env := Functions_spec.library and type output := program = struct
-  exception UndeclaredFunction of string
-  exception InvalidCall of Functions_spec.spec_mismatch
-
-  let interpret_program (stdlib : Functions_spec.library) (program : program) : program =
-    let rec aux acc = function
-      | [] -> List.rev acc
-      | FCall (f, args) :: t ->
+  Compiler with type env := Functions_spec.library and type output := program_result =
+struct
+  let interpret_program (stdlib : Functions_spec.library) (program : program)
+    : program_result
+    =
+    let rec aux acc errors commands =
+      match errors, commands with
+      | [], [] -> Ok (List.rev acc)
+      | errs, [] -> Error (List.rev errs)
+      | errs, FCall (f, args) :: t ->
         (match Functions_spec.library_allow_call f args stdlib with
          | Ok args ->
            let reordered_fcall = FCall (f, args) in
-           aux (reordered_fcall :: acc) t
-         | Error (UndeclaredFunction f) -> raise @@ UndeclaredFunction f
-         | Error (SpecMismatch s) -> raise @@ InvalidCall s)
-      | cmd :: t -> aux (cmd :: acc) t
+           aux (reordered_fcall :: acc) errs t
+         | Error sl -> aux acc (List.rev_append sl errs) t)
+      | errs, cmd :: t -> aux (cmd :: acc) errs t
     in
-    aux [] program
+    aux [] [] program
   ;;
 end
 

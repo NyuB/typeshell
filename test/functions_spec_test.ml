@@ -11,22 +11,9 @@ let spec_mismatch_format ppf (s : Functions_spec.spec_mismatch) =
     Format.pp_print_string
       ppf
       (Printf.sprintf "MissingArgument { expected = %d; actual = %d }" expected actual)
-  | InvalidLabel l ->
-    Format.pp_print_string ppf "InvalidLabel [ ";
-    Format.pp_print_list
-      ~pp_sep:(fun p () -> Format.pp_print_string p ";")
-      (fun p i -> Format.pp_print_string p i)
-      ppf
-      l;
-    Format.pp_print_string ppf " ]"
+  | InvalidLabel l -> Format.pp_print_string ppf (Printf.sprintf "InvalidLabel \"%s\"" l)
   | InvalidOption o ->
-    Format.pp_print_string ppf "InvalidOption [ ";
-    Format.pp_print_list
-      ~pp_sep:(fun p () -> Format.pp_print_string p ";")
-      (fun p i -> Format.pp_print_string p i)
-      ppf
-      o;
-    Format.pp_print_string ppf " ]"
+    Format.pp_print_string ppf (Printf.sprintf "InvalidOption \"%s\"" o)
 ;;
 
 let spec_arg_format ppf (a : call_argument) =
@@ -47,7 +34,12 @@ let spec_match_format ppf (s : Functions_spec.spec_match) =
       ppf
       args;
     Format.pp_print_string ppf " ]"
-  | Mismatch m -> spec_mismatch_format ppf m
+  | Mismatch m ->
+    Format.pp_print_list
+      ~pp_sep:(fun p -> Format.pp_print_newline p)
+      spec_mismatch_format
+      ppf
+      m
 ;;
 
 let spec_match_testable = Alcotest.testable spec_match_format ( = )
@@ -58,7 +50,7 @@ let example_specification_too_many_args () =
   Alcotest.(check spec_match_testable)
     "Expected too many arguments error"
     (Functions_spec.Mismatch
-       (Functions_spec.TooManyArguments { expected = 0; actual = 1 }))
+       [ Functions_spec.TooManyArguments { expected = 0; actual = 1 } ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -69,7 +61,8 @@ let example_specification_not_enough_args () =
   let args = [ Raw (Str "a") ] in
   Alcotest.(check spec_match_testable)
     "Expected missing argument error"
-    (Functions_spec.Mismatch (Functions_spec.MissingArgument { expected = 2; actual = 1 }))
+    (Functions_spec.Mismatch
+       [ Functions_spec.MissingArgument { expected = 2; actual = 1 } ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -111,7 +104,8 @@ let example_specification_varargs_missing_required () =
   let args = [] in
   Alcotest.(check spec_match_testable)
     "Expected missing argument error"
-    (Functions_spec.Mismatch (Functions_spec.MissingArgument { expected = 1; actual = 0 }))
+    (Functions_spec.Mismatch
+       [ Functions_spec.MissingArgument { expected = 1; actual = 0 } ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -133,7 +127,7 @@ let example_specification_wrong_label () =
   let args = [ Labeled ("wrong", Str "labeled"); Raw (Str "a") ] in
   Alcotest.(check spec_match_testable)
     "Expected invalid label error"
-    (Functions_spec.Mismatch (InvalidLabel [ "wrong" ]))
+    (Functions_spec.Mismatch [ InvalidLabel "wrong" ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -166,7 +160,7 @@ let example_invalid_vararg_after_reorder () =
   let args = [ Raw (Str "a"); Labeled ("label", Str "labeled") ] in
   Alcotest.(check spec_match_testable)
     "Expected mismatch"
-    (Functions_spec.Mismatch (TooManyArguments { expected = 1; actual = 2 }))
+    (Functions_spec.Mismatch [ TooManyArguments { expected = 1; actual = 2 } ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -211,7 +205,7 @@ let example_one_flag_option_invalid_option_passed () =
   let args = [ OptionFlag "nounbose" ] in
   Alcotest.(check spec_match_testable)
     "Expected invalid option"
-    (Functions_spec.Mismatch (InvalidOption [ "nounbose" ]))
+    (Functions_spec.Mismatch [ InvalidOption "nounbose" ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -222,7 +216,7 @@ let example_one_flag_option_invalid_vararg_passed () =
   let args = [ Raw (Str "var1") ] in
   Alcotest.(check spec_match_testable)
     "Expected invalid option"
-    (Functions_spec.Mismatch (TooManyArguments { expected = 0; actual = 1 }))
+    (Functions_spec.Mismatch [ TooManyArguments { expected = 0; actual = 1 } ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -237,14 +231,18 @@ let example_one_flag_option_only_varargs_passed () =
     (Functions_spec.spec_allow_call args spec)
 ;;
 
-let example_invalid_value_for_flag () =
+let example_invalid_option_values () =
   let spec : Functions_spec.specification =
-    { arguments = [ Option (Flag "verbose") ]; accept_varargs = false }
+    { arguments = [ Option (Flag "verbose"); Option (WithValue "output") ]
+    ; accept_varargs = false
+    }
   in
-  let args = [ OptionKeyValue ("verbose", Str "unexpected_value") ] in
+  let args =
+    [ OptionKeyValue ("verbose", Str "unexpected_value"); OptionFlag "output" ]
+  in
   Alcotest.(check spec_match_testable)
     "Expected mismatch"
-    (Functions_spec.Mismatch (InvalidOption [ "verbose" ]))
+    (Functions_spec.Mismatch [ InvalidOption "verbose"; InvalidOption "output" ])
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -312,9 +310,9 @@ let () =
         ; ( "one option, call with this option"
           , `Quick
           , example_one_flag_option_option_passed )
-        ; ( "one flag option, call with invalid value"
+        ; ( "one flag and one keyval spec, invalid call for each"
           , `Quick
-          , example_invalid_value_for_flag )
+          , example_invalid_option_values )
         ] )
     ; "Mixed examples", [ "Reverse passing order", `Quick, example_mixed_reversed ]
     ]

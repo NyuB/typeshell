@@ -1,0 +1,3 @@
+cp --nonsense foo:"bar";
+cp "a" "b" "c";
+cp "a";

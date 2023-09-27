@@ -41,16 +41,15 @@ type arg_mismatch =
 type spec_mismatch =
   | MissingArgument of arg_mismatch
   | TooManyArguments of arg_mismatch
-  | InvalidLabel of string list
-  | InvalidOption of string list
+  | InvalidLabel of string
+  | InvalidOption of string
 
 type spec_match =
-  | Mismatch of spec_mismatch
+  | Mismatch of spec_mismatch list
   | Match_Ok of call_argument list
 
-type lib_mismatch =
-  | UndeclaredFunction of string
-  | SpecMismatch of spec_mismatch
+exception UndeclaredFunction of string
+exception SpecMismatch of spec_mismatch
 
 type library = specification SMap.t
 
@@ -126,6 +125,8 @@ end = struct
   ;;
 end
 
+let invalid_labels labels = List.map (fun label -> InvalidLabel label) labels
+
 let check_labels args spec =
   match
     List.filter_map
@@ -139,8 +140,10 @@ let check_labels args spec =
       args
   with
   | [] -> ok
-  | l -> Error (InvalidLabel l)
+  | labels -> Error (invalid_labels labels)
 ;;
+
+let invalid_options opts = List.map (fun opt -> InvalidOption opt) opts
 
 let check_options args spec =
   match
@@ -158,37 +161,57 @@ let check_options args spec =
       args
   with
   | [] -> ok
-  | opts -> Error (InvalidOption opts)
+  | opts -> Error (invalid_options opts)
 ;;
 
 let allow_arg_count args spec =
   let arglen = non_option_arg_count args in
   let pos_spec = positional_count spec in
   if arglen < pos_spec
-  then Mismatch (MissingArgument { expected = pos_spec; actual = arglen })
+  then Mismatch [ MissingArgument { expected = pos_spec; actual = arglen } ]
   else (
     let no_varargs = arglen - pos_spec = 0 in
     if no_varargs || spec.accept_varargs
     then Match_Ok args
-    else Mismatch (TooManyArguments { expected = pos_spec; actual = arglen }))
+    else Mismatch [ TooManyArguments { expected = pos_spec; actual = arglen } ])
 ;;
 
 let spec_allow_call args spec =
-  match check_labels args spec.arguments with
-  | Ok () ->
-    (match check_options args spec.arguments with
-     | Ok () ->
-       let reordered = Arg_Reordering.reordered_arg_list args spec in
-       allow_arg_count reordered spec
-     | Error err_opts -> Mismatch err_opts)
-  | Error err_labels -> Mismatch err_labels
+  match check_labels args spec.arguments, check_options args spec.arguments with
+  | Ok (), Ok () ->
+    let reordered = Arg_Reordering.reordered_arg_list args spec in
+    allow_arg_count reordered spec
+  | Error err_labels, Ok () -> Mismatch err_labels
+  | Ok (), Error err_options -> Mismatch err_options
+  | Error err_labels, Error err_options -> Mismatch (err_labels @ err_options)
 ;;
 
 let library_allow_call f args lib =
   match SMap.find_opt f lib with
-  | None -> Error (UndeclaredFunction f)
+  | None -> Error [ UndeclaredFunction f ]
   | Some spec ->
     (match spec_allow_call args spec with
      | Match_Ok args -> Ok args
-     | Mismatch m -> Error (SpecMismatch m))
+     | Mismatch mismatches ->
+       Error (List.map (fun mismatch -> SpecMismatch mismatch) mismatches))
+;;
+
+let exn_printer e =
+  match e with
+  | SpecMismatch (InvalidLabel l) -> Some (Printf.sprintf "Invalid label '%s'" l)
+  | SpecMismatch (InvalidOption o) -> Some (Printf.sprintf "Invalid option '%s'" o)
+  | SpecMismatch (MissingArgument { expected; actual }) ->
+    Some
+      (Printf.sprintf
+         "Missing argument, expected %d arguments but got %d"
+         expected
+         actual)
+  | SpecMismatch (TooManyArguments { expected; actual }) ->
+    Some
+      (Printf.sprintf
+         "Too many arguments, expected %d arguments but got %d"
+         expected
+         actual)
+  | UndeclaredFunction f -> Some (Printf.sprintf "Undeclared function '%s'" f)
+  | _ -> None
 ;;
