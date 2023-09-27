@@ -26,3 +26,4 @@ type command =
   | FCall of string * call_argument list
 
 type program = command list
+type program_result = (program, exn list) result

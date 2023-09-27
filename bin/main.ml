@@ -13,9 +13,9 @@ let protected_out filename f =
   Fun.protect ~finally:(fun () -> close_out oc) (fun () -> f oc)
 ;;
 
-let apply_phases (program : Lang.program) : Compiler.program_result =
+let apply_phases (program : Lang.program) : Lang.program_result =
   program
-  |> Compiler.Assignments.interpret_program Compiler.phase_env
+  |> Assignments.interpret_program ()
   |> result_bind (Compiler.Function_Calls.interpret_program Compiler.BashStdLib.stdlib)
 ;;
 
@@ -25,7 +25,7 @@ let transpile_to_file output_file program =
       (fun line ->
         Out_channel.output_string oc line;
         Out_channel.output_char oc '\n')
-      (Compiler.Bash.interpret_program Compiler.phase_env program);
+      (Compiler.Bash.interpret_program () program);
     Out_channel.flush oc)
 ;;
 
@@ -61,6 +61,8 @@ let parse_args = function
             usage)
 ;;
 
+let exn_printers = [ Functions_spec.exn_printer; Assignments.exn_printer ]
+
 let exn_print e =
   List.fold_left
     (fun acc printer ->
@@ -68,7 +70,7 @@ let exn_print e =
       | None -> Option.map (fun s -> Printf.sprintf "Fatal error: %s" s) (printer e)
       | Some s -> Some s)
     None
-    [ Functions_spec.exn_printer ]
+    exn_printers
   |> Option.value
        ~default:
          (Printf.sprintf "Fatal error: exception %s" (Printexc.to_string_default e))

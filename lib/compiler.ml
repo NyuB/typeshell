@@ -1,79 +1,11 @@
 open Lang
 module SMap = Map.Make (String)
 
-exception UndeclaredVariable of string
-
 module type Compiler = sig
   type env
   type output
 
   val interpret_program : env -> program -> output
-end
-
-type phase_env = unit
-type program_result = (program, exn list) result
-
-let phase_env : phase_env = ()
-
-module Assignments = struct
-  type variable_constraints = { const : bool }
-  type context = variable_constraints SMap.t
-
-  exception AlreadyDeclaredVariable of string
-  exception ReassignedConstant of string
-
-  let check_declared ctxt name =
-    match SMap.find_opt name ctxt with
-    | Some _ -> Ok ctxt
-    | None -> Error (UndeclaredVariable name)
-  ;;
-
-  let declare ctxt name const =
-    match SMap.find_opt name ctxt with
-    | Some _ -> Error (AlreadyDeclaredVariable name)
-    | _ -> Ok (SMap.add name { const } ctxt)
-  ;;
-
-  let check_assignable ctxt name =
-    match SMap.find_opt name ctxt with
-    | None -> Error (UndeclaredVariable name)
-    | Some { const = true } -> Error (ReassignedConstant name)
-    | Some { const = false } -> Ok ctxt
-  ;;
-
-  let interpret_command (ctxt : context) (command : command) : (context, exn) result =
-    match command with
-    | Declare { name; const; expression = Var var_name } ->
-      let declared = check_declared ctxt var_name in
-      Result.bind declared (fun ctxt -> declare ctxt name const)
-    | Declare { name; const; _ } -> declare ctxt name const
-    | Assign { name; expression = Var var_name } ->
-      let declared = check_declared ctxt var_name in
-      Result.bind declared (fun ctxt -> check_assignable ctxt name)
-    | Assign { name; _ } -> check_assignable ctxt name
-    | FCall (_, expr) ->
-      List.fold_left
-        (fun acc e ->
-          match e with
-          | Raw (Var var_name)
-          | Labeled (_, Var var_name)
-          | OptionKeyValue (_, Var var_name) ->
-            Result.bind acc (fun _ -> check_declared ctxt var_name)
-          | _ -> acc)
-        (Ok ctxt)
-        expr
-  ;;
-
-  let interpret_program (_ : phase_env) (program : program) : program_result =
-    let rec aux ctxt = function
-      | [] -> Ok program
-      | cmd :: t ->
-        (match interpret_command ctxt cmd with
-         | Error e -> raise e
-         | Ok next_ctxt -> aux next_ctxt t)
-    in
-    aux SMap.empty program
-  ;;
 end
 
 module type StandardLibrary = sig
@@ -115,7 +47,7 @@ module Function_Calls = struct
   ;;
 end
 
-module Bash : Compiler with type env := phase_env and type output := string list = struct
+module Bash : Compiler with type env := unit and type output := string list = struct
   let shebang = "#!/bin/bash"
   let fail_fast_flags = "set -e"
   let blank_line = ""
