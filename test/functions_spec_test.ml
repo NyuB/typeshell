@@ -11,9 +11,22 @@ let spec_mismatch_format ppf (s : Functions_spec.spec_mismatch) =
     Format.pp_print_string
       ppf
       (Printf.sprintf "MissingArgument { expected = %d; actual = %d }" expected actual)
-  | InvalidLabel l -> Format.pp_print_string ppf (Printf.sprintf "InvalidLabel \"%s\"" l)
+  | InvalidLabel l ->
+    Format.pp_print_string ppf "InvalidLabel [ ";
+    Format.pp_print_list
+      ~pp_sep:(fun p () -> Format.pp_print_string p ";")
+      (fun p i -> Format.pp_print_string p i)
+      ppf
+      l;
+    Format.pp_print_string ppf " ]"
   | InvalidOption o ->
-    Format.pp_print_string ppf (Printf.sprintf "InvalidOption \"%s\"" o)
+    Format.pp_print_string ppf "InvalidOption [ ";
+    Format.pp_print_list
+      ~pp_sep:(fun p () -> Format.pp_print_string p ";")
+      (fun p i -> Format.pp_print_string p i)
+      ppf
+      o;
+    Format.pp_print_string ppf " ]"
 ;;
 
 let spec_arg_format ppf (a : call_argument) =
@@ -120,7 +133,7 @@ let example_specification_wrong_label () =
   let args = [ Labeled ("wrong", Str "labeled"); Raw (Str "a") ] in
   Alcotest.(check spec_match_testable)
     "Expected invalid label error"
-    (Functions_spec.Mismatch (InvalidLabel "wrong"))
+    (Functions_spec.Mismatch (InvalidLabel [ "wrong" ]))
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -198,7 +211,7 @@ let example_one_flag_option_invalid_option_passed () =
   let args = [ OptionFlag "nounbose" ] in
   Alcotest.(check spec_match_testable)
     "Expected invalid option"
-    (Functions_spec.Mismatch (InvalidOption "nounbose"))
+    (Functions_spec.Mismatch (InvalidOption [ "nounbose" ]))
     (Functions_spec.spec_allow_call args spec)
 ;;
 
@@ -231,7 +244,7 @@ let example_invalid_value_for_flag () =
   let args = [ OptionKeyValue ("verbose", Str "unexpected_value") ] in
   Alcotest.(check spec_match_testable)
     "Expected mismatch"
-    (Functions_spec.Mismatch (InvalidOption "verbose"))
+    (Functions_spec.Mismatch (InvalidOption [ "verbose" ]))
     (Functions_spec.spec_allow_call args spec)
 ;;
 

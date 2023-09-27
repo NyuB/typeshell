@@ -41,8 +41,8 @@ type arg_mismatch =
 type spec_mismatch =
   | MissingArgument of arg_mismatch
   | TooManyArguments of arg_mismatch
-  | InvalidLabel of string
-  | InvalidOption of string
+  | InvalidLabel of string list
+  | InvalidOption of string list
 
 type spec_match =
   | Mismatch of spec_mismatch
@@ -127,35 +127,38 @@ end = struct
 end
 
 let check_labels args spec =
-  List.fold_left
-    (fun acc (arg : call_argument) ->
-      Result.bind acc (fun _ ->
-        match arg with
+  match
+    List.filter_map
+      (fun (a : call_argument) ->
+        match a with
         | Labeled (l, _) ->
           (match List.find_opt (( = ) (Labeled l)) spec with
-           | None -> Error l
-           | Some _ -> ok)
-        | _ -> ok))
-    ok
-    args
+           | None -> Some l
+           | Some _ -> None)
+        | _ -> None)
+      args
+  with
+  | [] -> ok
+  | l -> Error (InvalidLabel l)
 ;;
 
 let check_options args spec =
-  List.fold_left
-    (fun acc (arg : call_argument) ->
-      Result.bind acc (fun _ ->
-        match arg with
-        | OptionFlag f ->
-          (match List.find_opt (( = ) (Option (Flag f))) spec with
-           | None -> Error f
-           | Some _ -> ok)
-        | OptionKeyValue (k, _) ->
-          (match List.find_opt (( = ) (Option (WithValue k))) spec with
-           | None -> Error k
-           | Some _ -> ok)
-        | _ -> ok))
-    ok
-    args
+  match
+    List.filter_map
+      (function
+       | OptionFlag f ->
+         (match List.find_opt (( = ) (Option (Flag f))) spec with
+          | None -> Some f
+          | Some _ -> None)
+       | OptionKeyValue (k, _) ->
+         (match List.find_opt (( = ) (Option (WithValue k))) spec with
+          | None -> Some k
+          | Some _ -> None)
+       | _ -> None)
+      args
+  with
+  | [] -> ok
+  | opts -> Error (InvalidOption opts)
 ;;
 
 let allow_arg_count args spec =
@@ -177,8 +180,8 @@ let spec_allow_call args spec =
      | Ok () ->
        let reordered = Arg_Reordering.reordered_arg_list args spec in
        allow_arg_count reordered spec
-     | Error o -> Mismatch (InvalidOption o))
-  | Error l -> Mismatch (InvalidLabel l)
+     | Error err_opts -> Mismatch err_opts)
+  | Error err_labels -> Mismatch err_labels
 ;;
 
 let library_allow_call f args lib =
