@@ -15,9 +15,7 @@ type program_result = (program, exn list) result
 
 let phase_env : phase_env = ()
 
-module type Phase = Compiler with type output := program_result and type env := phase_env
-
-module Assignments : Phase = struct
+module Assignments = struct
   type variable_constraints = { const : bool }
   type context = variable_constraints SMap.t
 
@@ -97,9 +95,7 @@ module BashStdLib : StandardLibrary = struct
   ;;
 end
 
-module Function_Calls :
-  Compiler with type env := Functions_spec.library and type output := program_result =
-struct
+module Function_Calls = struct
   let interpret_program (stdlib : Functions_spec.library) (program : program)
     : program_result
     =
