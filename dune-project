@@ -21,7 +21,13 @@
  (name typeshell)
  (synopsis "Checked dsl to bash transpiler")
  (description "Never write raw bash again")
- (depends (ocaml (>= 5.0.0)) dune)
+ (depends 
+  (ocaml (>= 5.0.0))
+  dune
+  graphics
+  (alcotest :with-test)
+  (ocamlformat :with-test)
+  (ppx_expect :with-test))
  (tags
   (bash compiler)))
 

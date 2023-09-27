@@ -12,6 +12,10 @@ bug-reports: "https://github.com/NyuB/typeshell/issues"
 depends: [
   "ocaml" {>= "5.0.0"}
   "dune" {>= "3.7"}
+  "graphics"
+  "alcotest" {with-test}
+  "ocamlformat" {with-test}
+  "ppx_expect" {with-test}
   "odoc" {with-doc}
 ]
 build: [
