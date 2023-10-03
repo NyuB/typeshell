@@ -1,9 +1,9 @@
-open Tea
+open Ide_lib.Tea
 module G = Graphics
 
 let init () =
   G.set_window_title "TypeShell IDE";
-  G.open_graph ":0 500x300-0+0";
+  G.open_graph ":0 1500x900-0+0";
   G.set_color 0x000000
 ;;
 

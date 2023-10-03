@@ -1,4 +1,4 @@
 (executable
  (public_name ide)
  (name ide)
- (libraries graphics typeshell unix))
+ (libraries graphics ide_lib))

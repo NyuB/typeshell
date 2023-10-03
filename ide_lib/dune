@@ -1,0 +1,3 @@
+(library
+ (name ide_lib)
+ (libraries typeshell unix))
