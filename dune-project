@@ -25,6 +25,8 @@
   (ocaml (>= 5.0.0))
   dune
   graphics
+  js_of_ocaml-compiler
+  js_of_ocaml-ppx
   (alcotest :with-test)
   (ocamlformat :with-test)
   (ppx_expect :with-test))
