@@ -42,6 +42,14 @@ module Subscription = struct
   type display_event += CharResize of View.dimensions
   type display_event += Click of View.position
   type display_event += KeyPressed of char
+
+  type arrow =
+    | Left
+    | Up
+    | Right
+    | Down
+
+  type display_event += Arrow of arrow
   type 'm t = display_event -> 'm option
 end
 
@@ -55,6 +63,7 @@ module type App = sig
 end
 
 module type Renderer = sig
+  val init : unit -> unit
   val render : View.t -> unit
   val poll_events : unit -> Subscription.display_event list
 end
@@ -63,6 +72,7 @@ let loop_app (module A : App) (module R : Renderer) (fps : float) : unit =
   let initial_model, initial_subscriptions = A.init in
   let model = ref initial_model
   and subscriptions = ref initial_subscriptions in
+  R.init ();
   while true do
     let events = R.poll_events () |> List.filter_map !subscriptions in
     let updated_model, updated_subscriptions =
