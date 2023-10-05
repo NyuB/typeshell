@@ -1,12 +1,13 @@
 (executable
  (name ide_js)
  (modes js)
- (libraries)
+ (libraries ide_lib)
+ (js_of_ocaml
+  (javascript_files provided.js))
  (preprocess
   (pps js_of_ocaml-ppx)))
 
 (rule
- (target ide.js)
- (deps index.html)
+ (target index.html)
  (action
-  (copy ide_js.bc.js ./ide.js)))
+  (copy index_template.html index.html)))

@@ -7,6 +7,11 @@ let init () =
   G.set_color 0x000000
 ;;
 
+let sleepf f callback =
+  Unix.sleepf f;
+  callback ()
+;;
+
 type state =
   { mutable previous_dimensions : View.dimensions
   ; mutable previous_char_size : View.dimensions

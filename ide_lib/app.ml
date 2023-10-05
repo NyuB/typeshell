@@ -160,7 +160,7 @@ module IDE : App = struct
 
   let init =
     ( { dimensions = View.dim_zero
-      ; char_size = View.dim_zero
+      ; char_size = { width = 12; height = 12 }
       ; text = Text.empty
       ; transpiled = Text.empty
       ; errors = Text.empty

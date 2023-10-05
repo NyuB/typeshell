@@ -66,6 +66,7 @@ module type Renderer = sig
   val init : unit -> unit
   val render : View.t -> unit
   val poll_events : unit -> Subscription.display_event list
+  val sleepf : float -> (unit -> unit) -> unit
 end
 
 let loop_app (module A : App) (module R : Renderer) (fps : float) : unit =
@@ -73,7 +74,7 @@ let loop_app (module A : App) (module R : Renderer) (fps : float) : unit =
   let model = ref initial_model
   and subscriptions = ref initial_subscriptions in
   R.init ();
-  while true do
+  let rec loop () =
     let events = R.poll_events () |> List.filter_map !subscriptions in
     let updated_model, updated_subscriptions =
       List.fold_left
@@ -86,6 +87,7 @@ let loop_app (module A : App) (module R : Renderer) (fps : float) : unit =
     model := updated_model;
     subscriptions := updated_subscriptions;
     R.render (A.view !model);
-    Unix.sleepf (1.0 /. fps)
-  done
+    R.sleepf (1.0 /. fps) loop
+  in
+  loop ()
 ;;
