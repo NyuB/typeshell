@@ -1,111 +1,6 @@
 open Tea
 
 module IDE : App = struct
-  module Text : sig
-    type t
-
-    type cursor =
-      { line : int
-      ; col : int
-      }
-
-    val of_list : string list -> t
-    val to_string : t -> string
-    val del : t -> t
-    val add : char -> t -> t
-    val newline : t -> t
-    val map_lines : (int -> string -> 'a) -> t -> 'a list
-    val cursor_left : t -> t
-    val cursor_right : t -> t
-    val cursor : t -> cursor
-    val empty : t
-  end = struct
-    type cursor =
-      { line : int
-      ; col : int
-      }
-
-    type t =
-      { lines : string list
-      ; cursor : cursor
-      }
-
-    let cursor t = t.cursor
-    let make_cursor line col = { line; col }
-    let empty = { lines = []; cursor = make_cursor 0 0 }
-    let of_list l = { lines = List.rev l; cursor = make_cursor 0 0 }
-    let to_string t = String.concat "\n" (List.rev t.lines)
-
-    let last_line_index = function
-      | { lines = []; _ } -> 0
-      | { lines = l; _ } -> List.length l - 1
-    ;;
-
-    let map_lines f t =
-      let rec aux acc line = function
-        | [] -> List.rev acc
-        | s :: rest -> aux (f line s :: acc) (line - 1) rest
-      in
-      aux [] (last_line_index t) t.lines
-    ;;
-
-    let del = function
-      | { lines = []; cursor = _ } as t -> t
-      | { lines = "" :: []; cursor = _ } -> empty
-      | { lines = "" :: l :: t; cursor = _ } ->
-        { lines = l :: t; cursor = { col = String.length l; line = List.length t } }
-      | { lines = s :: t; cursor } ->
-        { lines = String.sub s 0 (String.length s - 1) :: t
-        ; cursor = { cursor with col = cursor.col - 1 }
-        }
-    ;;
-
-    let add c = function
-      | { lines = []; cursor = _ } ->
-        { lines = [ String.make 1 c ]; cursor = make_cursor 0 1 }
-      | { lines = s :: t; cursor } ->
-        { lines = Printf.sprintf "%s%c" s c :: t
-        ; cursor = { line = cursor.line; col = cursor.col + 1 }
-        }
-    ;;
-
-    let newline t =
-      { lines = "" :: t.lines; cursor = { line = t.cursor.line + 1; col = 0 } }
-    ;;
-
-    let line_at l t = List.nth t.lines l
-
-    let cursor_left t =
-      match t.lines with
-      | [] -> t
-      | _ ->
-        let next_col = t.cursor.col - 1 in
-        if next_col = -1
-        then
-          if t.cursor.line = 0
-          then t
-          else (
-            let prev_line = line_at (t.cursor.line - 1) t in
-            { t with cursor = make_cursor (t.cursor.line - 1) (String.length prev_line) })
-        else t
-    ;;
-
-    let cursor_right t =
-      match t.lines with
-      | [] | [ "" ] -> t
-      | _ ->
-        let line_length = String.length (line_at t.cursor.line t)
-        and next_col = t.cursor.col + 1 in
-        if line_length = next_col
-        then (
-          let next_line = t.cursor.line + 1 in
-          if next_line = List.length t.lines
-          then t
-          else { t with cursor = make_cursor next_line 0 })
-        else { t with cursor = { t.cursor with col = next_col } }
-    ;;
-  end
-
   type model =
     { dimensions : View.dimensions
     ; char_size : View.dimensions
@@ -160,7 +55,7 @@ module IDE : App = struct
 
   let init =
     ( { dimensions = View.dim_zero
-      ; char_size = { width = 12; height = 12 }
+      ; char_size = View.dim_zero
       ; text = Text.empty
       ; transpiled = Text.empty
       ; errors = Text.empty

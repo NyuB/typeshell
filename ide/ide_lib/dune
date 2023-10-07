@@ -1,3 +1,6 @@
 (library
  (name ide_lib)
- (libraries typeshell unix))
+ (libraries typeshell unix)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect)))
