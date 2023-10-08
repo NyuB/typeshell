@@ -38,7 +38,7 @@ let del = function
     else (
       let l = String.length s in
       let left = String.sub s 0 (cursor.col - 1)
-      and right = if l = cursor.col then "" else String.sub s cursor.col l in
+      and right = String.sub s cursor.col (l - cursor.col) in
       { lines = Printf.sprintf "%s%s" left right :: t
       ; cursor = { cursor with col = cursor.col - 1 }
       })
@@ -52,9 +52,7 @@ let add c = function
   | { lines = s :: t; cursor } ->
     let l = String.length s in
     let left = String.sub s 0 cursor.col
-    and right =
-      if l = cursor.col then "" else String.sub s cursor.col (String.length s)
-    in
+    and right = String.sub s cursor.col (l - cursor.col) in
     { lines = Printf.sprintf "%s%c%s" left c right :: t
     ; cursor = { line = cursor.line; col = cursor.col + 1 }
     }
@@ -82,15 +80,14 @@ let cursor_right t =
   match t.lines with
   | [] | [ "" ] -> t
   | _ ->
-    let line_length = String.length (line_at t.cursor.line t)
-    and next_col = t.cursor.col + 1 in
-    if line_length = next_col
+    let line_length = String.length (line_at t.cursor.line t) in
+    if line_length = t.cursor.col
     then (
       let next_line = t.cursor.line + 1 in
       if next_line = List.length t.lines
       then t
       else { t with cursor = make_cursor next_line 0 })
-    else { t with cursor = { t.cursor with col = next_col } }
+    else { t with cursor = { t.cursor with col = t.cursor.col + 1 } }
 ;;
 
 module Tests = struct
@@ -118,67 +115,120 @@ module Tests = struct
     | Newline
     | Chars of string
     | Left
+    | Right
     | Del
 
-  let of_instructions i =
+  let apply_instructions i t =
     let rec aux text = function
       | [] -> text
       | Chars s :: t -> aux (add_chars s text) t
       | Newline :: t -> aux (newline text) t
       | Left :: t -> aux (cursor_left text) t
+      | Right :: t -> aux (cursor_right text) t
       | Del :: t -> aux (del text) t
     in
-    aux empty i
+    aux t i
   ;;
+
+  let of_instructions i = apply_instructions i empty
 
   let%expect_test "Single line" =
     let text = of_instructions [ Chars "this is one single line" ] in
     print_for_test text;
     [%expect {|
-        this is one single line
-        -----------------------^ |}]
+    this is one single line
+    -----------------------^ |}]
   ;;
 
   let%expect_test "Single with newline" =
     let text = of_instructions [ Chars "this is one single line"; Newline ] in
     print_for_test text;
     [%expect {|
-      this is one single line
+    this is one single line
 
-      ^ |}]
+    ^ |}]
   ;;
 
   let%expect_test "Single char then cursor left" =
     let text = of_instructions [ Chars "a"; Left ] in
     print_for_test text;
     [%expect {|
-        a
-        ^ |}]
+    a
+    ^ |}]
+  ;;
+
+  let%expect_test "Left twice then right" =
+    let text = of_instructions [ Chars "abc"; Left; Left; Right ] in
+    print_for_test text;
+    [%expect {|
+    abc
+    --^ |}]
+  ;;
+
+  let%expect_test "Right at eol without next line" =
+    let text = of_instructions [ Chars "abc"; Right ] in
+    print_for_test text;
+    [%expect {|
+    abc
+    ---^ |}]
+  ;;
+
+  let%expect_test "Right at eol with next line" =
+    let text =
+      of_instructions [ Chars "abc"; Newline; Chars "def"; Left; Left; Left; Left ]
+    in
+    print_for_test text;
+    [%expect {|
+    abc
+    ---^
+    def |}];
+    let right = apply_instructions [ Right ] text in
+    print_for_test right;
+    [%expect {|
+    abc
+    def
+    ^ |}]
   ;;
 
   let%expect_test "Three chars then cursor left twice" =
     let text = of_instructions [ Chars "abc"; Left; Left ] in
     print_for_test text;
     [%expect {|
-      abc
-      -^ |}]
+    abc
+    -^ |}]
   ;;
 
   let%expect_test "Three chars then newline then del" =
     let text = of_instructions [ Chars "abc"; Newline; Del ] in
     print_for_test text;
     [%expect {|
-        abc
-        ---^ |}]
+    abc
+    ---^ |}]
   ;;
 
   let%expect_test "Del empty" =
     print_for_test empty;
     [%expect {|
-      ^ |}];
+    ^ |}];
     let text = of_instructions [ Del; Del ] in
     print_for_test text;
     [%expect {|
-      ^ |}]
+    ^ |}]
+  ;;
+
+  let%expect_test "Type then left then type" =
+    let text = of_instructions [ Chars "insert here <>"; Left; Chars "inserted" ] in
+    print_for_test text;
+    [%expect {|
+    insert here <inserted>
+    ---------------------^ |}]
+  ;;
+
+  let%expect_test "Type then left then del" =
+    let text = of_instructions [ Chars "delete here <del>"; Left; Del; Del; Del ] in
+    print_for_test text;
+    [%expect {|
+    delete here <>
+    -------------^ |}]
   ;;
 end
