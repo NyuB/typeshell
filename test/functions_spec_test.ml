@@ -231,6 +231,19 @@ let example_one_flag_option_only_varargs_passed () =
     (Functions_spec.spec_allow_call args spec)
 ;;
 
+let example_two_options_only_one_passed () =
+  let spec : Functions_spec.specification =
+    { arguments = [ Option (Flag "verbose"); Positional; Option (Flag "force") ]
+    ; accept_varargs = false
+    }
+  in
+  let args = [ Raw (Str "var1"); OptionFlag "force" ] in
+  Alcotest.(check spec_match_testable)
+    "Expected ok"
+    (Functions_spec.Match_Ok [ OptionFlag "force"; Raw (Str "var1") ])
+    (Functions_spec.spec_allow_call args spec)
+;;
+
 let example_invalid_option_values () =
   let spec : Functions_spec.specification =
     { arguments = [ Option (Flag "verbose"); Option (WithValue "output") ]
@@ -310,6 +323,9 @@ let () =
         ; ( "one option, call with this option"
           , `Quick
           , example_one_flag_option_option_passed )
+        ; ( "Two options, only the last one passed"
+          , `Quick
+          , example_two_options_only_one_passed )
         ; ( "one flag and one keyval spec, invalid call for each"
           , `Quick
           , example_invalid_option_values )

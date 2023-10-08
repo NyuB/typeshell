@@ -24,14 +24,16 @@ let non_option_arg_count args =
        args)
 ;;
 
-let positional_count specification =
+let non_option_spec_count args =
   List.length
     (List.filter
        (function
         | Option _ -> false
         | _ -> true)
-       specification.arguments)
+       args)
 ;;
+
+let positional_count specification = non_option_spec_count specification.arguments
 
 type arg_mismatch =
   { expected : int
@@ -64,8 +66,17 @@ module Arg_Reordering : sig
   val reordered_arg_list : call_argument list -> specification -> call_argument list
 end = struct
   let find_index item arr =
-    let res = ref None in
-    Array.iteri (fun i e -> if e = item then res := Some i) arr;
+    let res = ref None
+    and index = ref 0 in
+    Array.iter
+      (fun e ->
+        if e = item
+        then res := Some !index
+        else (
+          match e with
+          | Option _ -> ()
+          | _ -> index := !index + 1))
+      arr;
     !res
   ;;
 
@@ -93,35 +104,30 @@ end = struct
       args
   ;;
 
-  let insert_options args spec arr =
-    let spec_arr = Array.of_list spec.arguments in
-    List.iter
-      (fun (a : call_argument) ->
-        match a with
-        | OptionFlag f -> arr.(find_index_unsafe (Option (Flag f)) spec_arr) <- Some a
-        | OptionKeyValue (k, _) ->
-          arr.(find_index_unsafe (Option (WithValue k)) spec_arr) <- Some a
-        | _ -> ())
-      args
-  ;;
-
   let insert_unlabeled args arr =
     List.iter
       (fun (a : call_argument) ->
         match a with
-        | Labeled _ | OptionFlag _ | OptionKeyValue _ -> ()
-        | _ -> insert_at_first_empty_slot a arr)
+        | Raw _ -> insert_at_first_empty_slot a arr
+        | _ -> ())
+      args
+  ;;
+
+  let option_only args =
+    List.filter_map
+      (function
+       | (OptionFlag _ | OptionKeyValue _) as o -> Some o
+       | _ -> None)
       args
   ;;
 
   let reordered_arg_list (args : call_argument list) (spec : specification)
     : call_argument list
     =
-    let result_arr = Array.make (List.length args) None in
+    let result_arr = Array.make (non_option_arg_count args) None in
     insert_labels args spec result_arr;
-    insert_options args spec result_arr;
     insert_unlabeled args result_arr;
-    result_arr |> Array.map Option.get |> Array.to_list
+    option_only args @ (result_arr |> Array.map Option.get |> Array.to_list)
   ;;
 end
 
