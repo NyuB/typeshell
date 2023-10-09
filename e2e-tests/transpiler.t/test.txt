@@ -1,2 +1,3 @@
+excluded tag before matched tag
 grep OK (this line should appear twice)
-salsifi
+excluded tag

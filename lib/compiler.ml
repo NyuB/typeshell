@@ -18,7 +18,8 @@ module BashStdLib : StandardLibrary = struct
       [ "echo", { arguments = []; options = []; accept_varargs = true }
       ; ( "grep"
         , { arguments = [ Positional; Positional ]
-          ; options = [ Flag "-v" ]
+          ; options =
+              [ Flag "-v"; WithValue "--after-context"; WithValue "--before-context" ]
           ; accept_varargs = true
           } )
       ; ( "cp"

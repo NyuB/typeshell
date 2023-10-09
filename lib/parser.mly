@@ -53,7 +53,8 @@ expression:
 arg_pass:
     | e = expression { Lang.(Raw e) }
     | label = ID; COLON; e = expression { Lang.(Labeled (label, e)) }
-    | opt = OPTION; { Lang.(OptionFlag opt) }
+    | opt = OPTION { Lang.(OptionFlag opt) }
+    | opt = OPTION; EQ; e = expression { Lang.(OptionKeyValue (opt, e)) }
 
 function_call:
     | f = ID; el = arg_pass * { Lang.FCall(f, el) }
