@@ -15,12 +15,17 @@ end
 module BashStdLib : StandardLibrary = struct
   let stdlib =
     Functions_spec.
-      [ "echo", { arguments = []; accept_varargs = true }
+      [ "echo", { arguments = []; options = []; accept_varargs = true }
       ; ( "grep"
-        , { arguments = [ Option (Flag "-v"); Positional; Positional ]
+        , { arguments = [ Positional; Positional ]
+          ; options = [ Flag "-v" ]
           ; accept_varargs = true
           } )
-      ; "cp", { arguments = [ Labeled "from"; Labeled "to" ]; accept_varargs = false }
+      ; ( "cp"
+        , { arguments = [ Labeled "from"; Labeled "to" ]
+          ; options = []
+          ; accept_varargs = false
+          } )
       ]
     |> List.to_seq
     |> SMap.of_seq

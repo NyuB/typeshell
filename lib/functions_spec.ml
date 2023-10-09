@@ -7,11 +7,11 @@ type option_specification =
 
 type arg_specification =
   | Labeled of string
-  | Option of option_specification
   | Positional
 
 type specification =
   { arguments : arg_specification list
+  ; options : option_specification list
   ; accept_varargs : bool
   }
 
@@ -24,16 +24,7 @@ let non_option_arg_count args =
        args)
 ;;
 
-let non_option_spec_count args =
-  List.length
-    (List.filter
-       (function
-        | Option _ -> false
-        | _ -> true)
-       args)
-;;
-
-let positional_count specification = non_option_spec_count specification.arguments
+let positional_count specification = List.length specification.arguments
 
 type arg_mismatch =
   { expected : int
@@ -66,17 +57,8 @@ module Arg_Reordering : sig
   val reordered_arg_list : call_argument list -> specification -> call_argument list
 end = struct
   let find_index item arr =
-    let res = ref None
-    and index = ref 0 in
-    Array.iter
-      (fun e ->
-        if e = item
-        then res := Some !index
-        else (
-          match e with
-          | Option _ -> ()
-          | _ -> index := !index + 1))
-      arr;
+    let res = ref None in
+    Array.iteri (fun i e -> if e = item then res := Some i) arr;
     !res
   ;;
 
@@ -156,11 +138,11 @@ let check_options args spec =
     List.filter_map
       (function
        | OptionFlag f ->
-         (match List.find_opt (( = ) (Option (Flag f))) spec with
+         (match List.find_opt (( = ) (Flag f)) spec with
           | None -> Some f
           | Some _ -> None)
        | OptionKeyValue (k, _) ->
-         (match List.find_opt (( = ) (Option (WithValue k))) spec with
+         (match List.find_opt (( = ) (WithValue k)) spec with
           | None -> Some k
           | Some _ -> None)
        | _ -> None)
@@ -183,7 +165,7 @@ let allow_arg_count args spec =
 ;;
 
 let spec_allow_call args spec =
-  match check_labels args spec.arguments, check_options args spec.arguments with
+  match check_labels args spec.arguments, check_options args spec.options with
   | Ok (), Ok () ->
     let reordered = Arg_Reordering.reordered_arg_list args spec in
     allow_arg_count reordered spec
