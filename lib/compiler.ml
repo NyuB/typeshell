@@ -41,12 +41,12 @@ module Function_Calls = struct
       match errors, commands with
       | [], [] -> Ok (List.rev acc)
       | errs, [] -> Error (List.rev errs)
-      | errs, FCall (f, args) :: t ->
+      | errs, { loc; item = FCall (f, args) } :: t ->
         (match Functions_spec.library_allow_call f args stdlib with
          | Ok args ->
            let reordered_fcall = FCall (f, args) in
-           aux (reordered_fcall :: acc) errs t
-         | Error sl -> aux acc (List.rev_append sl errs) t)
+           aux ({ loc; item = reordered_fcall } :: acc) errs t
+         | Error sl -> aux acc (List.rev_append (List.map (located loc) sl) errs) t)
       | errs, cmd :: t -> aux (cmd :: acc) errs t
     in
     aux [] [] program
@@ -73,7 +73,7 @@ module Bash : Compiler with type env := unit and type output := string list = st
   let transpile_assign name expr = Printf.sprintf "%s=%s" name (expr_repr expr)
 
   let transpile_command cmd =
-    match cmd with
+    match cmd.item with
     | Assign { name; expression } | Declare { name; expression; const = false } ->
       transpile_assign name expression
     | Declare { name; expression; const = true } ->
@@ -129,7 +129,7 @@ module Interpreter :
   ;;
 
   let interpret_command ctxt cmd =
-    match cmd with
+    match cmd.item with
     | Assign { name; expression } | Declare { name; expression; _ } ->
       assign_unsafe name expression ctxt
     | FCall ("echo", expr) ->

@@ -54,8 +54,8 @@ let interpret_program () (program : program) : program_result =
     | [], [] -> Ok program
     | errs, [] -> Error (List.rev errs)
     | errs, cmd :: t ->
-      (match interpret_command ctxt cmd with
-       | Error e -> aux (e :: errs) ctxt t
+      (match interpret_command ctxt cmd.item with
+       | Error e -> aux (located cmd.loc e :: errs) ctxt t
        | Ok next_ctxt -> aux errs next_ctxt t)
   in
   aux [] SMap.empty program

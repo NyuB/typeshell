@@ -22,9 +22,9 @@ command_trailed:
     ;
 
 command:
-    | fc = function_call { fc }
-    | a = assignment { Assign a }
-    | d = declaration { Declare d }
+    | fc = function_call { Lang.lex_located ($startpos(fc)) ($endpos(fc)) fc }
+    | a = assignment { Lang.lex_located ($startpos(a)) ($endpos(a)) (Lang.Assign a) }
+    | d = declaration { Lang.lex_located ($startpos(d)) ($endpos(d)) (Lang.Declare d) }
     ;
 
 declaration:

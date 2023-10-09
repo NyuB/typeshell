@@ -25,5 +25,27 @@ type command =
   | Declare of declaration
   | FCall of string * call_argument list
 
-type program = command list
-type program_result = (program, exn list) result
+type file_location = { line : int }
+
+type location =
+  { start_loc : file_location
+  ; end_loc : file_location
+  }
+
+type 'a located =
+  { loc : location
+  ; item : 'a
+  }
+
+let located loc item = { loc; item }
+
+let lex_located (start_loc : Lexing.position) (end_loc : Lexing.position) item =
+  { loc =
+      { start_loc = { line = start_loc.pos_lnum }; end_loc = { line = end_loc.pos_lnum } }
+  ; item
+  }
+;;
+
+type located_command = command located
+type program = located_command list
+type program_result = (program, exn located list) result

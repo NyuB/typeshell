@@ -65,23 +65,6 @@ module IDE : App = struct
 
   let result_bind f r = Result.bind r f
 
-  let exn_printers =
-    [ Typeshell.Functions_spec.exn_printer; Typeshell.Assignments.exn_printer ]
-  ;;
-
-  let exn_print e =
-    List.fold_left
-      (fun acc printer ->
-        match acc with
-        | None -> Option.map (fun s -> Printf.sprintf "Fatal error: %s" s) (printer e)
-        | Some s -> Some s)
-      None
-      exn_printers
-    |> Option.value
-         ~default:
-           (Printf.sprintf "Fatal error: exception %s" (Printexc.to_string_default e))
-  ;;
-
   let with_text text model =
     let lexbuf = Lexing.from_string (Text.to_string text) in
     try
@@ -95,9 +78,17 @@ module IDE : App = struct
         |> Result.map Text.of_list
       with
       | Ok transpiled -> { model with text; transpiled; errors = Text.empty }
-      | Error exns -> { model with text; errors = Text.of_list (List.map exn_print exns) }
+      | Error exns ->
+        { model with
+          text
+        ; errors = Text.of_list (List.map Typeshell.Exceptions.exn_print exns)
+        }
     with
-    | exn -> { model with text; errors = Text.of_list [ exn_print exn ] }
+    | exn ->
+      { model with
+        text
+      ; errors = Text.of_list [ Typeshell.Exceptions.default_print exn ]
+      }
   ;;
 
   let update model = function

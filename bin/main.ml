@@ -61,23 +61,8 @@ let parse_args = function
             usage)
 ;;
 
-let exn_printers = [ Functions_spec.exn_printer; Assignments.exn_printer ]
-
-let exn_print e =
-  List.fold_left
-    (fun acc printer ->
-      match acc with
-      | None -> Option.map (fun s -> Printf.sprintf "Fatal error: %s" s) (printer e)
-      | Some s -> Some s)
-    None
-    exn_printers
-  |> Option.value
-       ~default:
-         (Printf.sprintf "Fatal error: exception %s" (Printexc.to_string_default e))
-;;
-
-let print_exceptions_and_exit exn_list code =
-  List.iter (fun exn -> print_endline (exn_print exn)) exn_list;
+let print_exceptions_and_exit exn_list exn_printer code =
+  List.iter (fun exn -> print_endline (exn_printer exn)) exn_list;
   exit code
 ;;
 
@@ -93,7 +78,7 @@ let () =
       in
       match Parser.prog Lexer.read lexbuf |> apply_phases with
       | Ok program -> main args program
-      | Error exn_list -> print_exceptions_and_exit exn_list 2)
+      | Error exn_list -> print_exceptions_and_exit exn_list Exceptions.exn_print 2)
   with
-  | exn -> print_exceptions_and_exit [ exn ] 2
+  | exn -> print_exceptions_and_exit [ exn ] Exceptions.default_print 2
 ;;
